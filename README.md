@@ -21,11 +21,11 @@ The integration is powered by Stripe's [Payment Intents API](https://stripe.com/
 
 ### App components
 The app is comprised of two Activity classes:
-1. [StoreActivity](https://github.com/stripe/stripe-android/blob/master/samplestore/src/main/java/com/stripe/samplestore/StoreActivity.kt), which represents the customer adding items to their cart
+1. [StoreActivity](https://github.com/stripe-samples/sample-store-android/blob/master/app/src/main/java/com/stripe/samplestore/StoreActivity.kt), which represents the customer adding items to their cart
 
    <img width="246" height="506" src="https://raw.githubusercontent.com/stripe-samples/sample-store-android/master/assets/screenshots/screenshot01.png" />
 
-2. [PaymentActivity](https://github.com/stripe/stripe-android/blob/master/samplestore/src/main/java/com/stripe/samplestore/PaymentActivity.kt), which represents the checkout experience
+2. [PaymentActivity](https://github.com/stripe-samples/sample-store-android/blob/master/app/src/main/java/com/stripe/samplestore/PaymentActivity.kt), which represents the checkout experience
 
    <img width="246" height="506" src="https://raw.githubusercontent.com/stripe-samples/sample-store-android/master/assets/screenshots/screenshot05.png" />
 
@@ -53,7 +53,7 @@ The app is comprised of two Activity classes:
 ### Configure the samplestore app
 
 #### Required
-1. Set [Settings.PUBLISHABLE_KEY](example/src/main/java/com/stripe/example/Settings.kt)
+1. Set [Settings.PUBLISHABLE_KEY](app/src/main/java/com/stripe/samplestore/Settings.kt)
    to your [test publishable key](https://dashboard.stripe.com/test/apikeys). 
 
    For example,
@@ -61,7 +61,7 @@ The app is comprised of two Activity classes:
    const val PUBLISHABLE_KEY = "pk_test_12345"
    ```
 
-2. Set [Settings.BASE_URL](samplestore/src/main/java/com/stripe/samplestore/Settings.kt)
+2. Set [Settings.BASE_URL](app/src/main/java/com/stripe/samplestore/Settings.kt)
    to the URL of the [example backend deployed to Heroku](#deploy-example-backend-to-heroku).
 
    For example,
@@ -70,7 +70,7 @@ The app is comprised of two Activity classes:
    ```
 
 #### Optional
-1. Set [Settings.CURRENCY](samplestore/src/main/java/com/stripe/samplestore/Settings.kt)
+1. Set [Settings.CURRENCY](app/src/main/java/com/stripe/samplestore/Settings.kt)
    to the currency that the app should use. The default is `usd`.
 
    For example,
@@ -78,7 +78,7 @@ The app is comprised of two Activity classes:
    const val CURRENCY = "usd"
    ```
 
-2. Set [Settings.ALLOWED_PAYMENT_METHOD_TYPES](samplestore/src/main/java/com/stripe/samplestore/Settings.kt)
+2. Set [Settings.ALLOWED_PAYMENT_METHOD_TYPES](app/src/main/java/com/stripe/samplestore/Settings.kt)
    to the [payment method types](https://stripe.com/docs/api/payment_intents/object#payment_intent_object-payment_method_types)
    that the customer can use for payment. The default is `card`.
 
