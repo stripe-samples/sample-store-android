@@ -6,15 +6,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
-import android.support.annotation.Size
-import android.support.v4.content.LocalBroadcastManager
-import android.support.v7.app.AlertDialog
-import android.support.v7.app.AppCompatActivity
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.annotation.Size
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.jakewharton.rxbinding2.view.RxView
 import com.stripe.android.ApiResultCallback
 import com.stripe.android.CustomerSession
@@ -36,12 +36,7 @@ import com.stripe.android.model.SetupIntent
 import com.stripe.android.model.ShippingInformation
 import com.stripe.android.model.ShippingMethod
 import com.stripe.android.model.StripeIntent
-import com.stripe.android.view.PaymentFlowExtras.EVENT_SHIPPING_INFO_PROCESSED
-import com.stripe.android.view.PaymentFlowExtras.EVENT_SHIPPING_INFO_SUBMITTED
-import com.stripe.android.view.PaymentFlowExtras.EXTRA_DEFAULT_SHIPPING_METHOD
-import com.stripe.android.view.PaymentFlowExtras.EXTRA_IS_SHIPPING_INFO_VALID
-import com.stripe.android.view.PaymentFlowExtras.EXTRA_SHIPPING_INFO_DATA
-import com.stripe.android.view.PaymentFlowExtras.EXTRA_VALID_SHIPPING_METHODS
+import com.stripe.android.view.PaymentFlowExtras
 import com.stripe.samplestore.service.BackendApi
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -151,25 +146,28 @@ class PaymentActivity : AppCompatActivity() {
 
         broadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                val shippingInformation = intent
-                    .getParcelableExtra<ShippingInformation>(EXTRA_SHIPPING_INFO_DATA)
-                val shippingInfoProcessedIntent = Intent(EVENT_SHIPPING_INFO_PROCESSED)
+                val shippingInformation =
+                    intent.getParcelableExtra<ShippingInformation>(
+                        PaymentFlowExtras.EXTRA_SHIPPING_INFO_DATA)
+                val shippingInfoProcessedIntent = Intent(
+                    PaymentFlowExtras.EVENT_SHIPPING_INFO_PROCESSED)
                 if (!isShippingInfoValid(shippingInformation)) {
-                    shippingInfoProcessedIntent.putExtra(EXTRA_IS_SHIPPING_INFO_VALID, false)
+                    shippingInfoProcessedIntent.putExtra(
+                        PaymentFlowExtras.EXTRA_IS_SHIPPING_INFO_VALID, false)
                 } else {
-                    val shippingMethods =
-                        getValidShippingMethods(shippingInformation)
-                    shippingInfoProcessedIntent.putExtra(EXTRA_IS_SHIPPING_INFO_VALID, true)
+                    val shippingMethods = getValidShippingMethods(shippingInformation)
+                    shippingInfoProcessedIntent.putExtra(
+                        PaymentFlowExtras.EXTRA_IS_SHIPPING_INFO_VALID, true)
                     shippingInfoProcessedIntent.putParcelableArrayListExtra(
-                        EXTRA_VALID_SHIPPING_METHODS, ArrayList(shippingMethods))
+                        PaymentFlowExtras.EXTRA_VALID_SHIPPING_METHODS, ArrayList(shippingMethods))
                     shippingInfoProcessedIntent
-                        .putExtra(EXTRA_DEFAULT_SHIPPING_METHOD, shippingMethods[0])
+                        .putExtra(PaymentFlowExtras.EXTRA_DEFAULT_SHIPPING_METHOD, shippingMethods[0])
                 }
                 localBroadcastManager.sendBroadcast(shippingInfoProcessedIntent)
             }
         }
         localBroadcastManager.registerReceiver(broadcastReceiver,
-            IntentFilter(EVENT_SHIPPING_INFO_SUBMITTED))
+            IntentFilter(PaymentFlowExtras.EVENT_SHIPPING_INFO_SUBMITTED))
     }
 
     private fun isShippingInfoValid(shippingInfo: ShippingInformation): Boolean {
