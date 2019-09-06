@@ -33,7 +33,7 @@ The app is comprised of two Activity classes:
 ## Setup
 
 ### Install
-1. Clone the `stripe-android` repository.
+1. Clone the `sample-store-android` repository.
 2. Open the project in Android Studio.
 3. After [deploying the example backend to Heroku](#deploy-the-example-backend-to-heroku) and [configuring the app](#configure-the-app), build and run the project.
 
