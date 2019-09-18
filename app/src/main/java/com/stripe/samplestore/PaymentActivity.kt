@@ -103,10 +103,10 @@ class PaymentActivity : AppCompatActivity() {
             .build())
 
         stripe = if (Settings.STRIPE_ACCOUNT_ID != null) {
-            Stripe(this, PaymentConfiguration.getInstance().publishableKey,
+            Stripe(this, PaymentConfiguration.getInstance(this).publishableKey,
                     Settings.STRIPE_ACCOUNT_ID)
         } else {
-            Stripe(this, PaymentConfiguration.getInstance().publishableKey)
+            Stripe(this, PaymentConfiguration.getInstance(this).publishableKey)
         }
 
         service = RetrofitFactory.instance.create(BackendApi::class.java)
@@ -223,7 +223,7 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun updateConfirmPaymentButton() {
-        val price = paymentSession.paymentSessionData.cartTotal
+        val price = paymentSession.paymentSessionData?.cartTotal ?: 0
 
         confirmPaymentButton.text = getString(R.string.pay_label, StoreUtils.getPriceString(price, null))
     }
@@ -254,7 +254,7 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun setupTotalPriceView(view: View, currencySymbol: String) {
         val itemViews = getItemViews(view)
-        val totalPrice = paymentSession.paymentSessionData.cartTotal
+        val totalPrice = paymentSession.paymentSessionData?.cartTotal ?: 0
         itemViews[0].text = getString(R.string.checkout_total_cost_label)
         val price = PayWithGoogleUtils.getPriceString(totalPrice,
             storeCart.currency)
@@ -329,13 +329,14 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun capturePayment(customerId: String) {
-        if (paymentSession.paymentSessionData.paymentMethod == null) {
+        val paymentSessionData = paymentSession.paymentSessionData
+        if (paymentSessionData?.paymentMethod == null) {
             displayError("No payment method selected")
             return
         }
 
         val stripeResponse = service.capturePayment(
-            createCapturePaymentParams(paymentSession.paymentSessionData, customerId,
+            createCapturePaymentParams(paymentSessionData, customerId,
                 Settings.STRIPE_ACCOUNT_ID))
         compositeDisposable.add(stripeResponse
             .subscribeOn(Schedulers.io())
@@ -349,13 +350,14 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun createSetupIntent(customerId: String) {
-        if (paymentSession.paymentSessionData.paymentMethod == null) {
+        val paymentSessionData = paymentSession.paymentSessionData
+        if (paymentSessionData?.paymentMethod == null) {
             displayError("No payment method selected")
             return
         }
 
         val stripeResponse = service.createSetupIntent(
-            createSetupIntentParams(paymentSession.paymentSessionData, customerId,
+            createSetupIntentParams(paymentSessionData, customerId,
                 Settings.STRIPE_ACCOUNT_ID))
         compositeDisposable.add(stripeResponse
             .subscribeOn(Schedulers.io())
@@ -463,7 +465,8 @@ class PaymentActivity : AppCompatActivity() {
                 .setPrepopulatedShippingInfo(exampleShippingInfo).build())
         paymentSession.setCartTotal(storeCart.totalPrice)
 
-        val isPaymentReadyToCharge = paymentSession.paymentSessionData.isPaymentReadyToCharge
+        val isPaymentReadyToCharge =
+            paymentSession.paymentSessionData?.isPaymentReadyToCharge == true
         confirmPaymentButton.isEnabled = isPaymentReadyToCharge
         setupPaymentCredentialsButton.isEnabled = isPaymentReadyToCharge
 
@@ -577,7 +580,7 @@ class PaymentActivity : AppCompatActivity() {
         override fun onCustomerRetrieved(customer: Customer) {
             val activity = activity ?: return
 
-            activity.capturePayment(customer.id)
+            customer.id?.let { activity.capturePayment(it) }
         }
 
         override fun onError(httpCode: Int, errorMessage: String, stripeError: StripeError?) {
@@ -593,7 +596,7 @@ class PaymentActivity : AppCompatActivity() {
 
         override fun onCustomerRetrieved(customer: Customer) {
             val activity = activity ?: return
-            activity.createSetupIntent(customer.id)
+            customer.id?.let { activity.createSetupIntent(it) }
         }
 
         override fun onError(httpCode: Int, errorMessage: String, stripeError: StripeError?) {
