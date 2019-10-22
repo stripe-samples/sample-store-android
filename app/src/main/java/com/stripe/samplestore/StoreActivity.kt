@@ -90,7 +90,7 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
 
         val emojiView = dialogView.findViewById<TextView>(R.id.dlg_emoji_display)
         // Show a smiley face!
-        emojiView.text = StoreUtils.getEmojiByUnicode(0x1F642)
+        emojiView.text = "🙂"
 
         val priceView = dialogView.findViewById<TextView>(R.id.dlg_price_display)
         priceView.text = StoreUtils.getPriceString(price, null)
@@ -107,7 +107,7 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
 
         val emojiView = dialogView.findViewById<TextView>(R.id.dlg_emoji_display)
         // Show a smiley face!
-        emojiView.text = StoreUtils.getEmojiByUnicode(0x1F642)
+        emojiView.text = "🙂"
 
         AlertDialog.Builder(this)
             .setView(dialogView)

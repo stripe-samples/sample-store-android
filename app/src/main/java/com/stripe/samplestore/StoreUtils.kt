@@ -11,10 +11,6 @@ internal object StoreUtils {
 
     private const val CURRENCY_SIGN = '\u00A4'
 
-    fun getEmojiByUnicode(unicode: Int): String {
-        return String(Character.toChars(unicode))
-    }
-
     fun getPriceString(price: Long, currency: Currency?): String {
         val displayCurrency = currency ?: Currency.getInstance(Settings.CURRENCY)
 
