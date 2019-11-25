@@ -1,4 +1,4 @@
-# Stripe Emoji Apparel App
+# Android Basic Integration Sample
 
 **Contents**
 1. [Overview](#overview)
@@ -9,10 +9,8 @@
 
 ## Overview
 
-The Emoji Apparel app is an app that demonstrates integrating with the [Stripe Android SDK](https://github.com/stripe/stripe-android).
-It uses the [standard integration](https://stripe.com/docs/mobile/android/standard) approach,
-which means it uses [PaymentSession](https://stripe.dev/stripe-android/com/stripe/android/PaymentSession.html)
-to manage the checkout flow, including selecting a Payment Method and specifying a shipping address and shipping method.
+This sample app demonstrates integrating with the [Stripe Android SDK](https://github.com/stripe/stripe-android) using its prebuilt UI components and [PaymentSession](https://stripe.dev/stripe-android/com/stripe/android/PaymentSession.html)
+to manage the checkout flow, including selecting a Payment Method and specifying a shipping address and shipping method.  Read the [Basic Integration](https://stripe.com/docs/mobile/android/basic) guide to learn more.
 
 ### APIs
 The integration is powered by Stripe's [Payment Intents API](https://stripe.com/docs/payments/payment-intents/android),
