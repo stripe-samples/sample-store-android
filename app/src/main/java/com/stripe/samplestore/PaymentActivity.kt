@@ -1,10 +1,7 @@
 package com.stripe.samplestore
 
 import android.app.Activity
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -14,7 +11,6 @@ import android.widget.TextView
 import androidx.annotation.Size
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.jakewharton.rxbinding2.view.RxView
 import com.stripe.android.ApiResultCallback
 import com.stripe.android.CustomerSession
@@ -36,7 +32,7 @@ import com.stripe.android.model.SetupIntent
 import com.stripe.android.model.ShippingInformation
 import com.stripe.android.model.ShippingMethod
 import com.stripe.android.model.StripeIntent
-import com.stripe.android.view.PaymentFlowExtras
+import com.stripe.android.view.BillingAddressFields
 import com.stripe.samplestore.service.BackendApi
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -46,7 +42,7 @@ import okhttp3.ResponseBody
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
-import java.util.ArrayList
+import java.util.Currency
 import java.util.HashMap
 import java.util.Locale
 
@@ -54,7 +50,6 @@ class PaymentActivity : AppCompatActivity() {
 
     private val compositeDisposable = CompositeDisposable()
 
-    private lateinit var broadcastReceiver: BroadcastReceiver
     private lateinit var cartItemLayout: LinearLayout
     private lateinit var enterShippingInfo: TextView
     private lateinit var enterPaymentInfo: TextView
@@ -129,7 +124,7 @@ class PaymentActivity : AppCompatActivity() {
         compositeDisposable.add(RxView.clicks(enterShippingInfo)
             .subscribe { paymentSession.presentShippingFlow() })
         compositeDisposable.add(RxView.clicks(enterPaymentInfo)
-            .subscribe { paymentSession.presentPaymentMethodSelection(true) })
+            .subscribe { paymentSession.presentPaymentMethodSelection() })
 
         val customerSession = CustomerSession.getInstance()
         compositeDisposable.add(RxView.clicks(confirmPaymentButton)
@@ -142,36 +137,6 @@ class PaymentActivity : AppCompatActivity() {
                 customerSession.retrieveCurrentCustomer(
                     SetupIntentCustomerRetrievalListener(this@PaymentActivity))
             })
-        val localBroadcastManager = LocalBroadcastManager.getInstance(this)
-
-        broadcastReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                val shippingInformation =
-                    intent.getParcelableExtra<ShippingInformation>(
-                        PaymentFlowExtras.EXTRA_SHIPPING_INFO_DATA)
-                val shippingInfoProcessedIntent = Intent(
-                    PaymentFlowExtras.EVENT_SHIPPING_INFO_PROCESSED)
-                if (!isShippingInfoValid(shippingInformation)) {
-                    shippingInfoProcessedIntent.putExtra(
-                        PaymentFlowExtras.EXTRA_IS_SHIPPING_INFO_VALID, false)
-                } else {
-                    val shippingMethods = getValidShippingMethods(shippingInformation)
-                    shippingInfoProcessedIntent.putExtra(
-                        PaymentFlowExtras.EXTRA_IS_SHIPPING_INFO_VALID, true)
-                    shippingInfoProcessedIntent.putParcelableArrayListExtra(
-                        PaymentFlowExtras.EXTRA_VALID_SHIPPING_METHODS, ArrayList(shippingMethods))
-                    shippingInfoProcessedIntent
-                        .putExtra(PaymentFlowExtras.EXTRA_DEFAULT_SHIPPING_METHOD, shippingMethods[0])
-                }
-                localBroadcastManager.sendBroadcast(shippingInfoProcessedIntent)
-            }
-        }
-        localBroadcastManager.registerReceiver(broadcastReceiver,
-            IntentFilter(PaymentFlowExtras.EVENT_SHIPPING_INFO_SUBMITTED))
-    }
-
-    private fun isShippingInfoValid(shippingInfo: ShippingInformation): Boolean {
-        return shippingInfo.address != null && Locale.US.country == shippingInfo.address!!.country
     }
 
     /*
@@ -179,7 +144,6 @@ class PaymentActivity : AppCompatActivity() {
      */
     override fun onDestroy() {
         compositeDisposable.dispose()
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(broadcastReceiver)
         paymentSession.onDestroy()
         super.onDestroy()
     }
@@ -223,7 +187,7 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun updateConfirmPaymentButton() {
-        val price = paymentSession.paymentSessionData?.cartTotal ?: 0
+        val price = paymentSession.paymentSessionData.cartTotal
 
         confirmPaymentButton.text = getString(R.string.pay_label, StoreUtils.getPriceString(price, null))
     }
@@ -254,9 +218,9 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun setupTotalPriceView(view: View, currencySymbol: String) {
         val itemViews = getItemViews(view)
-        val totalPrice = paymentSession.paymentSessionData?.cartTotal ?: 0
+        val totalPrice = paymentSession.paymentSessionData.cartTotal
         itemViews[0].text = getString(R.string.checkout_total_cost_label)
-        val price = PayWithGoogleUtils.getPriceString(totalPrice,
+        val price = PayWithGoogleUtils.getPriceString(totalPrice.toInt(),
             storeCart.currency)
         val displayPrice = currencySymbol + price
         itemViews[3].text = displayPrice
@@ -271,13 +235,13 @@ class PaymentActivity : AppCompatActivity() {
             val quantityPriceString = "X " + item.quantity + " @"
             itemViews[1].text = quantityPriceString
 
-            val unitPriceString = currencySymbol + PayWithGoogleUtils.getPriceString(item.unitPrice,
+            val unitPriceString = currencySymbol + PayWithGoogleUtils.getPriceString(item.unitPrice.toInt(),
                 storeCart.currency)
             itemViews[2].text = unitPriceString
         }
 
         val totalPriceString = currencySymbol +
-            PayWithGoogleUtils.getPriceString(item.totalPrice, storeCart.currency)
+            PayWithGoogleUtils.getPriceString(item.totalPrice.toInt(), storeCart.currency)
         itemViews[3].text = totalPriceString
     }
 
@@ -330,7 +294,7 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun capturePayment(customerId: String) {
         val paymentSessionData = paymentSession.paymentSessionData
-        if (paymentSessionData?.paymentMethod == null) {
+        if (paymentSessionData.paymentMethod == null) {
             displayError("No payment method selected")
             return
         }
@@ -351,7 +315,7 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun createSetupIntent(customerId: String) {
         val paymentSessionData = paymentSession.paymentSessionData
-        if (paymentSessionData?.paymentMethod == null) {
+        if (paymentSessionData.paymentMethod == null) {
             displayError("No payment method selected")
             return
         }
@@ -382,7 +346,7 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun processStripeIntent(stripeIntent: StripeIntent) {
         if (stripeIntent.requiresAction()) {
-            stripe.authenticatePayment(this, stripeIntent.clientSecret!!)
+            stripe.handleNextActionForPayment(this, stripeIntent.clientSecret!!)
         } else if (stripeIntent.requiresConfirmation()) {
             confirmStripeIntent(stripeIntent.id!!, Settings.STRIPE_ACCOUNT_ID)
         } else if (stripeIntent.status == StripeIntent.Status.Succeeded) {
@@ -460,13 +424,19 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun createPaymentSession(): PaymentSession {
         val paymentSession = PaymentSession(this)
-        paymentSession.init(PaymentSessionListenerImpl(this),
+        paymentSession.init(
+            PaymentSessionListenerImpl(this),
             PaymentSessionConfig.Builder()
-                .setPrepopulatedShippingInfo(exampleShippingInfo).build())
+                .setPrepopulatedShippingInfo(exampleShippingInfo)
+                .setShippingInformationValidator(ShippingInfoValidator())
+                .setShippingMethodsFactory(ShippingMethodsFactory())
+                .setBillingAddressFields(BillingAddressFields.PostalCode)
+                .build()
+        )
         paymentSession.setCartTotal(storeCart.totalPrice)
 
         val isPaymentReadyToCharge =
-            paymentSession.paymentSessionData?.isPaymentReadyToCharge == true
+            paymentSession.paymentSessionData.isPaymentReadyToCharge
         confirmPaymentButton.isEnabled = isPaymentReadyToCharge
         setupPaymentCredentialsButton.isEnabled = isPaymentReadyToCharge
 
@@ -516,37 +486,17 @@ class PaymentActivity : AppCompatActivity() {
             .joinToString(separator = " ") { it.capitalize() }
     }
 
-    private fun getValidShippingMethods(
-        shippingInformation: ShippingInformation
-    ): List<ShippingMethod> {
-        val isCourierSupported = shippingInformation.address != null &&
-            "94110" == shippingInformation.address!!.postalCode
-        val courierMethod = if (isCourierSupported) {
-            ShippingMethod("1 Hour Courier", "courier",
-                "Arrives in the next hour", 1099, Settings.CURRENCY)
-        } else {
-            null
-        }
-        return listOfNotNull(
-            ShippingMethod("UPS Ground", "ups-ground",
-                "Arrives in 3-5 days", 0, Settings.CURRENCY),
-            ShippingMethod("FedEx", "fedex",
-                "Arrives tomorrow", 599, Settings.CURRENCY),
-            courierMethod
-        )
-    }
-
     private fun onPaymentSessionDataChanged(data: PaymentSessionData) {
-        if (data.shippingMethod != null) {
-            enterShippingInfo.text = data.shippingMethod!!.label
-            shippingCosts = data.shippingMethod!!.amount
+        data.shippingMethod?.let { shippingMethod ->
+            enterShippingInfo.text = shippingMethod.label
+            shippingCosts = shippingMethod.amount
             paymentSession.setCartTotal(storeCart.totalPrice + shippingCosts)
             addCartItems()
             updateConfirmPaymentButton()
         }
 
-        if (data.paymentMethod != null) {
-            enterPaymentInfo.text = getPaymentMethodDescription(data.paymentMethod!!)
+        data.paymentMethod?.let { paymentMethod ->
+            enterPaymentInfo.text = getPaymentMethodDescription(paymentMethod)
         }
 
         if (data.isPaymentReadyToCharge) {
@@ -583,7 +533,7 @@ class PaymentActivity : AppCompatActivity() {
             customer.id?.let { activity.capturePayment(it) }
         }
 
-        override fun onError(httpCode: Int, errorMessage: String, stripeError: StripeError?) {
+        override fun onError(errorCode: Int, errorMessage: String, stripeError: StripeError?) {
             val activity = activity ?: return
 
             activity.displayError("Error getting payment method:. $errorMessage")
@@ -599,9 +549,54 @@ class PaymentActivity : AppCompatActivity() {
             customer.id?.let { activity.createSetupIntent(it) }
         }
 
-        override fun onError(httpCode: Int, errorMessage: String, stripeError: StripeError?) {
+        override fun onError(errorCode: Int, errorMessage: String, stripeError: StripeError?) {
             val activity = activity ?: return
             activity.displayError("Error getting payment method:. $errorMessage")
+        }
+    }
+
+    private class ShippingInfoValidator : PaymentSessionConfig.ShippingInformationValidator {
+        override fun getErrorMessage(shippingInformation: ShippingInformation): String {
+            return "A US address is required"
+        }
+
+        override fun isValid(shippingInformation: ShippingInformation): Boolean {
+            return Locale.US.country == shippingInformation.address?.country
+        }
+    }
+
+    private class ShippingMethodsFactory : PaymentSessionConfig.ShippingMethodsFactory {
+        override fun create(shippingInformation: ShippingInformation): List<ShippingMethod> {
+            val isCourierSupported = "94110" == shippingInformation.address?.postalCode
+            val currency = Currency.getInstance(Settings.CURRENCY.toUpperCase(Locale.ROOT))
+            val courierMethod = if (isCourierSupported) {
+                ShippingMethod(
+                    label = "1 Hour Courier",
+                    identifier = "courier",
+                    detail = "Arrives in the next hour",
+                    amount = 1099,
+                    currency = currency
+                )
+            } else {
+                null
+            }
+            return listOfNotNull(
+                ShippingMethod(
+                    label = "UPS Ground",
+                    identifier = "ups-ground",
+                    detail = "Arrives in 3-5 days",
+                    amount = 0,
+                    currency = currency
+                ),
+                ShippingMethod(
+                    label = "FedEx",
+                    identifier = "fedex",
+                    detail = "Arrives tomorrow",
+                    amount = 599,
+                    currency = currency
+                ),
+                courierMethod
+            )
         }
     }
 
