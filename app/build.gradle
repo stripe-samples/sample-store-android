@@ -46,7 +46,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.stripe:stripe-android:11.2.0'
+    implementation 'com.stripe:stripe-android:12.3.0'
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'androidx.appcompat:appcompat:1.1.0'
     implementation 'androidx.recyclerview:recyclerview:1.0.0'
@@ -54,7 +54,7 @@ dependencies {
 
     /* Needed for RxAndroid */
     implementation 'io.reactivex.rxjava2:rxandroid:2.1.1'
-    implementation 'io.reactivex.rxjava2:rxjava:2.2.13'
+    implementation 'io.reactivex.rxjava2:rxjava:2.2.14'
 
     /* Needed for Rx Bindings on views */
     implementation 'com.jakewharton.rxbinding2:rxbinding:2.2.0'
@@ -81,7 +81,7 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutineVersion"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutineVersion"
 
-    ktlint 'com.pinterest:ktlint:0.34.2'
+    ktlint 'com.pinterest:ktlint:0.35.0'
 }
 
 repositories {

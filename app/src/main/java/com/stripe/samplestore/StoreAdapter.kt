@@ -49,8 +49,8 @@ class StoreAdapter internal constructor(
             removeButton.visibility = visibility
         }
 
-        fun setEmoji(emojiUnicode: Int) {
-            emojiTextView.text = StoreUtils.getEmojiByUnicode(emojiUnicode)
+        fun setEmoji(emoji: String) {
+            emojiTextView.text = emoji
         }
 
         fun setPrice(price: Int) {
@@ -73,7 +73,7 @@ class StoreAdapter internal constructor(
         // otherwise functional if you switched that assumption on the backend and passed
         // currency code as a parameter.
         currency = Currency.getInstance(Settings.CURRENCY)
-        quantityOrdered = IntArray(EMOJI_CLOTHES.size)
+        quantityOrdered = IntArray(Products.values().size)
     }
 
     private fun bumpItemQuantity(index: Int, increase: Boolean) {
@@ -92,11 +92,11 @@ class StoreAdapter internal constructor(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        if (position == EMOJI_CLOTHES.size) {
+        if (position == Products.values().size) {
             holder.setHidden(true)
         } else {
             holder.setHidden(false)
-            holder.setEmoji(EMOJI_CLOTHES[position])
+            holder.setEmoji(Products.values()[position].emoji)
             holder.setPrice(getPrice(position))
             holder.setQuantity(quantityOrdered[position])
             holder.position = position
@@ -104,7 +104,7 @@ class StoreAdapter internal constructor(
     }
 
     override fun getItemCount(): Int {
-        return EMOJI_CLOTHES.size + 1
+        return Products.values().size + 1
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -115,15 +115,18 @@ class StoreAdapter internal constructor(
     }
 
     internal fun launchPurchaseActivityWithCart() {
-        val cart = StoreCart(currency)
-        for (i in quantityOrdered.indices) {
+        val storeLineItems = quantityOrdered.indices.mapNotNull { i ->
             if (quantityOrdered[i] > 0) {
-                cart.addStoreLineItem(
-                    StoreUtils.getEmojiByUnicode(EMOJI_CLOTHES[i]),
+                StoreLineItem(
+                    Products.values()[i].emoji,
                     quantityOrdered[i],
-                    getPrice(i).toLong())
+                    getPrice(i).toLong()
+                )
+            } else {
+                null
             }
         }
+        val cart = StoreCart(currency, storeLineItems)
 
         activity.startActivityForResult(
             PaymentActivity.createIntent(activity, cart),
@@ -139,23 +142,29 @@ class StoreAdapter internal constructor(
     }
 
     private fun getPrice(position: Int): Int {
-        return (EMOJI_PRICES[position] * priceMultiplier).toInt()
+        return (Products.values()[position].price * priceMultiplier).toInt()
     }
 
     interface TotalItemsChangedListener {
         fun onTotalItemsChanged(totalItems: Int)
     }
 
-    companion object {
-
-        private val EMOJI_CLOTHES = intArrayOf(
-            0x1F455, 0x1F456, 0x1F457, 0x1F458, 0x1F459, 0x1F45A, 0x1F45B,
-            0x1F45C, 0x1F45D, 0x1F45E, 0x1F45F, 0x1F460, 0x1F461, 0x1F462
-        )
-
-        private val EMOJI_PRICES = intArrayOf(
-            2000, 4000, 3000, 700, 600, 1000, 2000,
-            2500, 800, 3000, 2000, 5000, 5500, 6000
-        )
+    private enum class Products(internal val emoji: String, internal val price: Int) {
+        Shirt("👕", 2000),
+        Pants("👖", 4000),
+        Dress("👗", 3000),
+        MansShoe("👞", 700),
+        AthleticShoe("👟", 2000),
+        HighHeeledShoe("👠", 1000),
+        WomansSandal("👡", 2000),
+        WomansBoots("👢", 2500),
+        WomansHat("👒", 800),
+        Bikini("👙", 3000),
+        Lipstick("💄", 2000),
+        TopHat("🎩", 5000),
+        Purse("👛", 5500),
+        Handbag("👜", 6000),
+        Sunglasses("🕶", 2000),
+        WomansClothes("👚", 2500)
     }
 }

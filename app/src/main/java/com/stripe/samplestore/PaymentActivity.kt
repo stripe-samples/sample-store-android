@@ -42,7 +42,6 @@ import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
-import okhttp3.ResponseBody
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
@@ -102,12 +101,11 @@ class PaymentActivity : AppCompatActivity() {
                 .build())
             .build())
 
-        stripe = if (Settings.STRIPE_ACCOUNT_ID != null) {
-            Stripe(this, PaymentConfiguration.getInstance(this).publishableKey,
-                    Settings.STRIPE_ACCOUNT_ID)
-        } else {
-            Stripe(this, PaymentConfiguration.getInstance(this).publishableKey)
-        }
+        stripe = Stripe(
+            this,
+            PaymentConfiguration.getInstance(this).publishableKey,
+            Settings.STRIPE_ACCOUNT_ID
+        )
 
         service = RetrofitFactory.instance.create(BackendApi::class.java)
 
@@ -125,7 +123,7 @@ class PaymentActivity : AppCompatActivity() {
 
         updateConfirmPaymentButton()
         enterShippingInfo = findViewById(R.id.shipping_info)
-        enterPaymentInfo = findViewById(R.id.payment_source)
+        enterPaymentInfo = findViewById(R.id.payment_method)
         compositeDisposable.add(RxView.clicks(enterShippingInfo)
             .subscribe { paymentSession.presentShippingFlow() })
         compositeDisposable.add(RxView.clicks(enterPaymentInfo)
@@ -223,7 +221,7 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun updateConfirmPaymentButton() {
-        val price = paymentSession.paymentSessionData?.cartTotal ?: 0
+        val price = paymentSession.paymentSessionData.cartTotal
 
         confirmPaymentButton.text = getString(R.string.pay_label, StoreUtils.getPriceString(price, null))
     }
@@ -232,7 +230,7 @@ class PaymentActivity : AppCompatActivity() {
         cartItemLayout.removeAllViewsInLayout()
         val currencySymbol = storeCart.currency.getSymbol(Locale.US)
 
-        addLineItems(currencySymbol, storeCart.lineItems)
+        addLineItems(currencySymbol, storeCart.storeLineItems.toList())
 
         addLineItems(currencySymbol,
             listOf(StoreLineItem(getString(R.string.checkout_shipping_cost_label), 1, shippingCosts)))
@@ -244,17 +242,17 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun addLineItems(currencySymbol: String, items: List<StoreLineItem>) {
-        for (item in items) {
+        items.forEach {
             val view = layoutInflater.inflate(
                 R.layout.cart_item, cartItemLayout, false)
-            fillOutCartItemView(item, view, currencySymbol)
+            fillOutCartItemView(it, view, currencySymbol)
             cartItemLayout.addView(view)
         }
     }
 
     private fun setupTotalPriceView(view: View, currencySymbol: String) {
         val itemViews = getItemViews(view)
-        val totalPrice = paymentSession.paymentSessionData?.cartTotal ?: 0
+        val totalPrice = paymentSession.paymentSessionData.cartTotal
         itemViews[0].text = getString(R.string.checkout_total_cost_label)
         val price = PayWithGoogleUtils.getPriceString(totalPrice,
             storeCart.currency)
@@ -297,17 +295,19 @@ class PaymentActivity : AppCompatActivity() {
     ): HashMap<String, Any> {
         val params = HashMap<String, Any>()
         params["amount"] = data.cartTotal.toString()
-        params["payment_method"] = data.paymentMethod!!.id!!
+        params["payment_method_id"] = data.paymentMethod!!.id!!
         params["payment_method_types"] = Settings.ALLOWED_PAYMENT_METHOD_TYPES.map { it.code }
-        params["currency"] = Settings.CURRENCY
+        params["country"] = Settings.COUNTRY
         params["customer_id"] = customerId
-        if (data.shippingInformation != null) {
-            params["shipping"] = data.shippingInformation!!.toParamMap()
+        data.shippingInformation?.let {
+            params["shipping"] = it.toParamMap()
         }
         params["return_url"] = "stripe://payment-auth-return"
-        if (stripeAccountId != null) {
-            params["stripe_account"] = stripeAccountId
+        stripeAccountId?.let {
+            params["stripe_account"] = it
         }
+
+        params["products"] = storeCart.products
         return params
     }
 
@@ -317,11 +317,12 @@ class PaymentActivity : AppCompatActivity() {
         stripeAccountId: String?
     ): HashMap<String, Any> {
         val params = HashMap<String, Any>()
-        params["payment_method"] = data.paymentMethod!!.id!!
+        params["payment_method"] = data.paymentMethod?.id!!
         params["payment_method_types"] = Settings.ALLOWED_PAYMENT_METHOD_TYPES.map { it.code }
         params["customer_id"] = customerId
         params["return_url"] = "stripe://payment-auth-return"
         params["currency"] = Settings.CURRENCY
+        params["country"] = Settings.COUNTRY
         if (stripeAccountId != null) {
             params["stripe_account"] = stripeAccountId
         }
@@ -330,12 +331,12 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun capturePayment(customerId: String) {
         val paymentSessionData = paymentSession.paymentSessionData
-        if (paymentSessionData?.paymentMethod == null) {
+        if (paymentSessionData.paymentMethod == null) {
             displayError("No payment method selected")
             return
         }
 
-        val stripeResponse = service.capturePayment(
+        val stripeResponse = service.confirmPaymentIntent(
             createCapturePaymentParams(paymentSessionData, customerId,
                 Settings.STRIPE_ACCOUNT_ID))
         compositeDisposable.add(stripeResponse
@@ -344,14 +345,14 @@ class PaymentActivity : AppCompatActivity() {
             .doOnSubscribe { startLoading() }
             .doFinally { stopLoading() }
             .subscribe(
-                { onStripeIntentClientSecretResponse(it) },
+                { onStripeIntentClientSecretResponse(it.string()) },
                 { throwable -> displayError(throwable.localizedMessage) }
             ))
     }
 
     private fun createSetupIntent(customerId: String) {
         val paymentSessionData = paymentSession.paymentSessionData
-        if (paymentSessionData?.paymentMethod == null) {
+        if (paymentSessionData.paymentMethod == null) {
             displayError("No payment method selected")
             return
         }
@@ -365,19 +366,20 @@ class PaymentActivity : AppCompatActivity() {
             .doOnSubscribe { startLoading() }
             .doFinally { stopLoading() }
             .subscribe(
-                { onStripeIntentClientSecretResponse(it) },
+                { onStripeIntentClientSecretResponse(it.string()) },
                 { throwable -> displayError(throwable.localizedMessage) }
             ))
     }
 
     private fun displayError(errorMessage: String?) {
-        val alertDialog = AlertDialog.Builder(this).create()
-        alertDialog.setTitle("Error")
-        alertDialog.setMessage(errorMessage)
-        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK") {
-            dialog, _ -> dialog.dismiss()
-        }
-        alertDialog.show()
+        AlertDialog.Builder(this)
+            .setTitle("Error")
+            .setMessage(errorMessage)
+            .setNeutralButton("OK") {
+                    dialog, _ -> dialog.dismiss()
+            }
+            .create()
+            .show()
     }
 
     private fun processStripeIntent(stripeIntent: StripeIntent) {
@@ -403,35 +405,50 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun confirmStripeIntent(stripeIntentId: String, stripeAccountId: String?) {
-        val params = HashMap<String, Any>()
-        params["payment_intent_id"] = stripeIntentId
+        val params: HashMap<String, Any> = hashMapOf(
+            "payment_intent_id" to stripeIntentId
+        )
         if (stripeAccountId != null) {
             params["stripe_account"] = stripeAccountId
         }
 
-        compositeDisposable.add(service.confirmPayment(params)
+        compositeDisposable.add(service.confirmPaymentIntent(params)
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
             .doOnSubscribe { startLoading() }
             .doFinally { stopLoading() }
             .subscribe(
-                { onStripeIntentClientSecretResponse(it) },
+                { onStripeIntentClientSecretResponse(it.string()) },
                 { throwable -> displayError(throwable.localizedMessage) }
             ))
     }
 
     @Throws(IOException::class, JSONException::class)
-    private fun onStripeIntentClientSecretResponse(responseBody: ResponseBody) {
-        val clientSecret = JSONObject(responseBody.string()).getString("secret")
-        compositeDisposable.add(
-            Observable
-                .fromCallable { retrieveStripeIntent(clientSecret) }
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .doOnSubscribe { startLoading() }
-                .doFinally { stopLoading() }
-                .subscribe { processStripeIntent(it) }
-        )
+    private fun onStripeIntentClientSecretResponse(responseContents: String) {
+        val response = JSONObject(responseContents)
+
+        if (response.has("success")) {
+            val success = response.getBoolean("success")
+            if (success) {
+                finishPayment()
+            } else {
+                displayError("Payment failed")
+            }
+        } else {
+            val clientSecret = response.getString("secret")
+            compositeDisposable.add(
+                Observable
+                    .fromCallable { retrieveStripeIntent(clientSecret) }
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .doOnSubscribe { startLoading() }
+                    .doFinally { stopLoading() }
+                    .subscribe(
+                        { processStripeIntent(it) },
+                        { throwable -> displayError(throwable.localizedMessage) }
+                    )
+            )
+        }
     }
 
     private fun retrieveStripeIntent(clientSecret: String): StripeIntent {
@@ -462,11 +479,12 @@ class PaymentActivity : AppCompatActivity() {
         val paymentSession = PaymentSession(this)
         paymentSession.init(PaymentSessionListenerImpl(this),
             PaymentSessionConfig.Builder()
-                .setPrepopulatedShippingInfo(exampleShippingInfo).build())
+                .setPrepopulatedShippingInfo(exampleShippingInfo)
+                .setPaymentMethodTypes(Settings.ALLOWED_PAYMENT_METHOD_TYPES)
+                .build())
         paymentSession.setCartTotal(storeCart.totalPrice)
 
-        val isPaymentReadyToCharge =
-            paymentSession.paymentSessionData?.isPaymentReadyToCharge == true
+        val isPaymentReadyToCharge = paymentSession.paymentSessionData.isPaymentReadyToCharge
         confirmPaymentButton.isEnabled = isPaymentReadyToCharge
         setupPaymentCredentialsButton.isEnabled = isPaymentReadyToCharge
 
@@ -519,34 +537,33 @@ class PaymentActivity : AppCompatActivity() {
     private fun getValidShippingMethods(
         shippingInformation: ShippingInformation
     ): List<ShippingMethod> {
-        val isCourierSupported = shippingInformation.address != null &&
-            "94110" == shippingInformation.address!!.postalCode
+        val isCourierSupported = "94110" == shippingInformation.address?.postalCode
         val courierMethod = if (isCourierSupported) {
             ShippingMethod("1 Hour Courier", "courier",
-                "Arrives in the next hour", 1099, Settings.CURRENCY)
+                1099, Settings.CURRENCY, "Arrives in the next hour")
         } else {
             null
         }
         return listOfNotNull(
             ShippingMethod("UPS Ground", "ups-ground",
-                "Arrives in 3-5 days", 0, Settings.CURRENCY),
+                0, Settings.CURRENCY, "Arrives in 3-5 days"),
             ShippingMethod("FedEx", "fedex",
-                "Arrives tomorrow", 599, Settings.CURRENCY),
+                599, Settings.CURRENCY, "Arrives tomorrow"),
             courierMethod
         )
     }
 
     private fun onPaymentSessionDataChanged(data: PaymentSessionData) {
-        if (data.shippingMethod != null) {
-            enterShippingInfo.text = data.shippingMethod!!.label
-            shippingCosts = data.shippingMethod!!.amount
+        data.shippingMethod?.let { shippingMethod ->
+            enterShippingInfo.text = shippingMethod.label
+            shippingCosts = shippingMethod.amount
             paymentSession.setCartTotal(storeCart.totalPrice + shippingCosts)
             addCartItems()
             updateConfirmPaymentButton()
         }
 
-        if (data.paymentMethod != null) {
-            enterPaymentInfo.text = getPaymentMethodDescription(data.paymentMethod!!)
+        data.paymentMethod?.let {
+            enterPaymentInfo.text = getPaymentMethodDescription(it)
         }
 
         if (data.isPaymentReadyToCharge) {
@@ -562,14 +579,11 @@ class PaymentActivity : AppCompatActivity() {
         override fun onCommunicatingStateChanged(isCommunicating: Boolean) {}
 
         override fun onError(errorCode: Int, errorMessage: String) {
-            val activity = listenerActivity ?: return
-
-            activity.displayError(errorMessage)
+            listenerActivity?.displayError(errorMessage)
         }
 
         override fun onPaymentSessionDataChanged(data: PaymentSessionData) {
-            val activity = listenerActivity ?: return
-            activity.onPaymentSessionDataChanged(data)
+            listenerActivity?.onPaymentSessionDataChanged(data)
         }
     }
 
@@ -578,15 +592,11 @@ class PaymentActivity : AppCompatActivity() {
     ) : CustomerSession.ActivityCustomerRetrievalListener<PaymentActivity>(activity) {
 
         override fun onCustomerRetrieved(customer: Customer) {
-            val activity = activity ?: return
-
-            customer.id?.let { activity.capturePayment(it) }
+            customer.id?.let { activity?.capturePayment(it) }
         }
 
         override fun onError(httpCode: Int, errorMessage: String, stripeError: StripeError?) {
-            val activity = activity ?: return
-
-            activity.displayError("Error getting payment method:. $errorMessage")
+            activity?.displayError("Error getting payment method:. $errorMessage")
         }
     }
 
@@ -595,13 +605,11 @@ class PaymentActivity : AppCompatActivity() {
     ) : CustomerSession.ActivityCustomerRetrievalListener<PaymentActivity>(activity) {
 
         override fun onCustomerRetrieved(customer: Customer) {
-            val activity = activity ?: return
-            customer.id?.let { activity.createSetupIntent(it) }
+            customer.id?.let { activity?.createSetupIntent(it) }
         }
 
         override fun onError(httpCode: Int, errorMessage: String, stripeError: StripeError?) {
-            val activity = activity ?: return
-            activity.displayError("Error getting payment method:. $errorMessage")
+            activity?.displayError("Error getting payment method:. $errorMessage")
         }
     }
 

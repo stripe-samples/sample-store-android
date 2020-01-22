@@ -17,8 +17,8 @@ interface BackendApi {
      *
      * {"secret": "pi_1Eu5SqCRMb_secret_O2Avhk5V0Pjeo"}
      */
-    @POST("capture_payment")
-    fun capturePayment(@Body params: HashMap<String, Any>): Observable<ResponseBody>
+    @POST("create_payment_intent")
+    fun createPaymentIntent(@Body params: HashMap<String, Any>): Observable<ResponseBody>
 
     /**
      * Used for Payment Intent Manual confirmation
@@ -29,8 +29,8 @@ interface BackendApi {
      *
      * {"secret": "pi_1Eu5SqCRMb_secret_O2Avhk5V0Pjeo"}
      */
-    @POST("confirm_payment")
-    fun confirmPayment(@Body params: HashMap<String, Any>): Observable<ResponseBody>
+    @POST("confirm_payment_intent")
+    fun confirmPaymentIntent(@Body params: HashMap<String, Any>): Observable<ResponseBody>
 
     @POST("create_setup_intent")
     fun createSetupIntent(@Body params: HashMap<String, Any>): Observable<ResponseBody>
