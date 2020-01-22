@@ -16,6 +16,10 @@ import io.reactivex.disposables.CompositeDisposable
 
 class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListener {
 
+    private val settings: Settings by lazy {
+        Settings(applicationContext)
+    }
+
     private val compositeDisposable = CompositeDisposable()
 
     private lateinit var goToCartButton: FloatingActionButton
@@ -38,7 +42,7 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_store)
 
-        PaymentConfiguration.init(this, Settings.PUBLISHABLE_KEY)
+        PaymentConfiguration.init(this, settings.publishableKey)
         goToCartButton = findViewById(R.id.fab_checkout)
         storeAdapter = StoreAdapter(this, priceMultiplier)
 
@@ -51,7 +55,7 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
         recyclerView.adapter = storeAdapter
 
         goToCartButton.setOnClickListener { storeAdapter.launchPurchaseActivityWithCart() }
-        setupCustomerSession(Settings.STRIPE_ACCOUNT_ID)
+        setupCustomerSession(settings.stripeAccountId)
     }
 
     override fun onDestroy() {
@@ -117,7 +121,7 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
 
     private fun setupCustomerSession(stripeAccountId: String?) {
         // CustomerSession only needs to be initialized once per app.
-        ephemeralKeyProvider = SampleStoreEphemeralKeyProvider(stripeAccountId)
+        ephemeralKeyProvider = SampleStoreEphemeralKeyProvider(applicationContext, stripeAccountId)
         CustomerSession.initCustomerSession(this, ephemeralKeyProvider, stripeAccountId)
     }
 

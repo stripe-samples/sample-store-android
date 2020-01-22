@@ -19,6 +19,16 @@
             android:name="com.stripe.samplestore.price_multiplier"
             android:value="${PRICE_MULTIPLIER}" />
 
+        <meta-data
+            android:name="com.stripe.example.metadata.backend_url"
+            android:value="${BACKEND_URL}" />
+        <meta-data
+            android:name="com.stripe.example.metadata.publishable_key"
+            android:value="${PUBLISHABLE_KEY}" />
+        <meta-data
+            android:name="com.stripe.example.metadata.stripe_account_id"
+            android:value="${STRIPE_ACCOUNT_ID}" />
+
         <activity android:name=".StoreActivity"
                   android:theme="@style/AppTheme.NoActionBar">
             <intent-filter>
