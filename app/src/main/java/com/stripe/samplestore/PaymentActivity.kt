@@ -48,6 +48,13 @@ import java.util.Locale
 
 class PaymentActivity : AppCompatActivity() {
 
+    private val settings: Settings by lazy {
+        Settings(applicationContext)
+    }
+    private val paymentConfiguration: PaymentConfiguration by lazy {
+        PaymentConfiguration.getInstance(this)
+    }
+
     private val compositeDisposable = CompositeDisposable()
 
     private lateinit var cartItemLayout: LinearLayout
@@ -58,9 +65,18 @@ class PaymentActivity : AppCompatActivity() {
     private lateinit var confirmPaymentButton: Button
     private lateinit var setupPaymentCredentialsButton: Button
 
-    private lateinit var stripe: Stripe
+    private val stripe: Stripe by lazy {
+        if (settings.stripeAccountId != null) {
+            Stripe(this, paymentConfiguration.publishableKey, settings.stripeAccountId)
+        } else {
+            Stripe(this, paymentConfiguration.publishableKey)
+        }
+    }
+
     private lateinit var paymentSession: PaymentSession
-    private lateinit var service: BackendApi
+    private val service: BackendApi by lazy {
+        BackendApiFactory(applicationContext).create()
+    }
 
     private lateinit var storeCart: StoreCart
     private var shippingCosts = 0L
@@ -96,15 +112,6 @@ class PaymentActivity : AppCompatActivity() {
                 .setUiCustomization(uiCustomization)
                 .build())
             .build())
-
-        stripe = if (Settings.STRIPE_ACCOUNT_ID != null) {
-            Stripe(this, PaymentConfiguration.getInstance(this).publishableKey,
-                    Settings.STRIPE_ACCOUNT_ID)
-        } else {
-            Stripe(this, PaymentConfiguration.getInstance(this).publishableKey)
-        }
-
-        service = RetrofitFactory.instance.create(BackendApi::class.java)
 
         val extras = intent.extras
         storeCart = extras?.getParcelable(EXTRA_CART)!!
@@ -300,8 +307,8 @@ class PaymentActivity : AppCompatActivity() {
         }
 
         val stripeResponse = service.capturePayment(
-            createCapturePaymentParams(paymentSessionData, customerId,
-                Settings.STRIPE_ACCOUNT_ID))
+            createCapturePaymentParams(paymentSessionData, customerId, settings.stripeAccountId)
+        )
         compositeDisposable.add(stripeResponse
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
@@ -321,8 +328,8 @@ class PaymentActivity : AppCompatActivity() {
         }
 
         val stripeResponse = service.createSetupIntent(
-            createSetupIntentParams(paymentSessionData, customerId,
-                Settings.STRIPE_ACCOUNT_ID))
+            createSetupIntentParams(paymentSessionData, customerId, settings.stripeAccountId)
+        )
         compositeDisposable.add(stripeResponse
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
@@ -348,7 +355,7 @@ class PaymentActivity : AppCompatActivity() {
         if (stripeIntent.requiresAction()) {
             stripe.handleNextActionForPayment(this, stripeIntent.clientSecret!!)
         } else if (stripeIntent.requiresConfirmation()) {
-            confirmStripeIntent(stripeIntent.id!!, Settings.STRIPE_ACCOUNT_ID)
+            confirmStripeIntent(stripeIntent.id!!, settings.stripeAccountId)
         } else if (stripeIntent.status == StripeIntent.Status.Succeeded) {
             if (stripeIntent is PaymentIntent) {
                 finishPayment()
