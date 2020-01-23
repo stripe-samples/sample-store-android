@@ -423,16 +423,17 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun createPaymentSession(): PaymentSession {
-        val paymentSession = PaymentSession(this)
-        paymentSession.init(
-            PaymentSessionListenerImpl(this),
+        val paymentSession = PaymentSession(
+            this,
             PaymentSessionConfig.Builder()
                 .setPrepopulatedShippingInfo(exampleShippingInfo)
                 .setShippingInformationValidator(ShippingInfoValidator())
                 .setShippingMethodsFactory(ShippingMethodsFactory())
                 .setBillingAddressFields(BillingAddressFields.PostalCode)
+                .setShouldShowGooglePay(true)
                 .build()
         )
+        paymentSession.init(PaymentSessionListenerImpl(this))
         paymentSession.setCartTotal(storeCart.totalPrice)
 
         val isPaymentReadyToCharge =
@@ -466,12 +467,12 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun getPaymentMethodDescription(paymentMethod: PaymentMethod): String {
         return when (paymentMethod.type) {
-            PaymentMethod.Type.Card.code -> {
+            PaymentMethod.Type.Card -> {
                 paymentMethod.card?.let {
                     "${getDisplayName(it.brand)}-${it.last4}"
                 } ?: ""
             }
-            PaymentMethod.Type.Fpx.code -> {
+            PaymentMethod.Type.Fpx -> {
                 paymentMethod.fpx?.let {
                     "${getDisplayName(it.bank)} (FPX)"
                 } ?: ""
