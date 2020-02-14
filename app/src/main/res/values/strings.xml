@@ -4,9 +4,9 @@
     <string name="setup_payment_credentials">Setup Payment Credentials</string>
     <string name="add_payment_method">Add payment method</string>
     <string name="add_shipping_details">Add shipping address</string>
-    <string name="purchase_successful">Your purchase was a success!</string>
-    <string name="setup_successful">Your setup was a success!</string>
-    <string name="total">Total</string>
+    <string name="purchase_successful">Your purchase was successful</string>
+    <string name="setup_successful">Your payment method was saved for later</string>
+    <string name="total">Total %1$s</string>
     <string name="increase_quantity">Increase quantity</string>
     <string name="decrease_quantity">Decrease quantity</string>
     <string name="default_quantity">0</string>

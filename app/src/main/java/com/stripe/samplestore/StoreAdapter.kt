@@ -121,7 +121,8 @@ class StoreAdapter internal constructor(
                 cart.addStoreLineItem(
                     StoreUtils.getEmojiByUnicode(EMOJI_CLOTHES[i]),
                     quantityOrdered[i],
-                    getPrice(i).toLong())
+                    getPrice(i).toLong()
+                )
             }
         }
 
