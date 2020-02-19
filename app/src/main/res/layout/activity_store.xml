@@ -42,8 +42,8 @@
         app:rippleColor="@color/colorPrimary"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
-        android:clickable="true"
-        android:focusable="true"
+        android:contentDescription="@string/go_to_checkout"
+        android:accessibilityLiveRegion="polite"
         app:elevation="12dp"
         app:useCompatPadding="true"
         app:pressedTranslationZ="12dp" />

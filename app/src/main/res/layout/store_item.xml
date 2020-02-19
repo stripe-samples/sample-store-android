@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="horizontal"
-              android:layout_width="match_parent"
-              android:layout_height="wrap_content"
-              android:background="@drawable/store_item_background"
-              android:padding="@dimen/item_padding">
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/item"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/store_item_background"
+    android:orientation="horizontal"
+    android:padding="@dimen/item_padding"
+    >
 
     <TextView
         android:id="@+id/tv_emoji"
@@ -16,7 +19,7 @@
         />
 
     <ImageButton
-        android:id="@+id/tv_minus"
+        android:id="@+id/btn_remove"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:padding="@dimen/button_padding"
@@ -24,7 +27,7 @@
         android:background="?attr/selectableItemBackground"
         android:src="@drawable/ic_remove_black_24dp"
         android:tint="@color/semitransparentGray"
-        android:contentDescription="@string/decrease_quantity" />
+        android:contentDescription="@null" />
 
     <TextView
         android:id="@+id/tv_quantity"
@@ -35,10 +38,11 @@
         android:textSize="36sp"
         android:text="@string/default_quantity"
         android:textAppearance="@android:style/TextAppearance.DeviceDefault.Medium"
+        android:focusable="false"
         />
 
     <ImageButton
-        android:id="@+id/tv_plus"
+        android:id="@+id/btn_add"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:padding="@dimen/button_padding"
@@ -47,7 +51,7 @@
         android:background="?attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_add_black_24dp"
         android:tint="@color/semitransparentGray"
-        android:contentDescription="@string/increase_quantity" />
+        android:contentDescription="@null" />
 
     <TextView
         android:id="@+id/tv_price"
@@ -58,6 +62,7 @@
         android:layout_gravity="center_vertical"
         android:layout_marginEnd="@dimen/price_right_margin"
         android:textAppearance="@android:style/TextAppearance.DeviceDefault.Medium"
+        android:focusable="false"
         />
 
 </LinearLayout>
