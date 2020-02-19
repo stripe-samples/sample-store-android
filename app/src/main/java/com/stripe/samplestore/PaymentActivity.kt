@@ -4,9 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.annotation.Size
 import androidx.appcompat.app.AlertDialog
@@ -38,6 +35,12 @@ import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
+import kotlinx.android.synthetic.main.activity_payment.add_payment_method
+import kotlinx.android.synthetic.main.activity_payment.add_shipping_info
+import kotlinx.android.synthetic.main.activity_payment.btn_confirm_payment
+import kotlinx.android.synthetic.main.activity_payment.btn_setup_intent
+import kotlinx.android.synthetic.main.activity_payment.cart_items
+import kotlinx.android.synthetic.main.activity_payment.progress_bar
 import okhttp3.ResponseBody
 import org.json.JSONException
 import org.json.JSONObject
@@ -57,14 +60,6 @@ class PaymentActivity : AppCompatActivity() {
 
     private val compositeDisposable = CompositeDisposable()
 
-    private lateinit var cartItemLayout: LinearLayout
-    private lateinit var enterShippingInfo: TextView
-    private lateinit var enterPaymentInfo: TextView
-    private lateinit var progressBar: ProgressBar
-
-    private lateinit var confirmPaymentButton: Button
-    private lateinit var setupPaymentCredentialsButton: Button
-
     private val stripe: Stripe by lazy {
         if (settings.stripeAccountId != null) {
             Stripe(this, paymentConfiguration.publishableKey, settings.stripeAccountId)
@@ -73,12 +68,27 @@ class PaymentActivity : AppCompatActivity() {
         }
     }
 
-    private lateinit var paymentSession: PaymentSession
+    private val paymentSession: PaymentSession by lazy {
+        PaymentSession(
+            this,
+            PaymentSessionConfig.Builder()
+                .setPrepopulatedShippingInfo(exampleShippingInfo)
+                .setShippingInformationValidator(ShippingInfoValidator())
+                .setShippingMethodsFactory(ShippingMethodsFactory())
+                .setBillingAddressFields(BillingAddressFields.PostalCode)
+                .setShouldShowGooglePay(true)
+                .build()
+        )
+    }
+
     private val service: BackendApi by lazy {
         BackendApiFactory(applicationContext).create()
     }
 
-    private lateinit var storeCart: StoreCart
+    private val storeCart: StoreCart by lazy {
+        requireNotNull(intent?.extras?.getParcelable<StoreCart>(EXTRA_CART))
+    }
+
     private var shippingCosts = 0L
 
     private val exampleShippingInfo: ShippingInformation
@@ -113,33 +123,23 @@ class PaymentActivity : AppCompatActivity() {
                 .build())
             .build())
 
-        val extras = intent.extras
-        storeCart = extras?.getParcelable(EXTRA_CART)!!
-
-        progressBar = findViewById(R.id.progress_bar)
-        cartItemLayout = findViewById(R.id.cart_list_items)
-        confirmPaymentButton = findViewById(R.id.btn_confirm_payment)
-        setupPaymentCredentialsButton = findViewById(R.id.btn_setup_intent)
-
-        paymentSession = createPaymentSession()
+        initPaymentSession()
 
         addCartItems()
 
         updateConfirmPaymentButton()
-        enterShippingInfo = findViewById(R.id.shipping_info)
-        enterPaymentInfo = findViewById(R.id.payment_source)
-        compositeDisposable.add(RxView.clicks(enterShippingInfo)
+        compositeDisposable.add(RxView.clicks(add_shipping_info)
             .subscribe { paymentSession.presentShippingFlow() })
-        compositeDisposable.add(RxView.clicks(enterPaymentInfo)
+        compositeDisposable.add(RxView.clicks(add_payment_method)
             .subscribe { paymentSession.presentPaymentMethodSelection() })
 
         val customerSession = CustomerSession.getInstance()
-        compositeDisposable.add(RxView.clicks(confirmPaymentButton)
+        compositeDisposable.add(RxView.clicks(btn_confirm_payment)
             .subscribe {
                 customerSession.retrieveCurrentCustomer(
                     PaymentIntentCustomerRetrievalListener(this@PaymentActivity))
             })
-        compositeDisposable.addAll(RxView.clicks(setupPaymentCredentialsButton)
+        compositeDisposable.addAll(RxView.clicks(btn_setup_intent)
             .subscribe {
                 customerSession.retrieveCurrentCustomer(
                     SetupIntentCustomerRetrievalListener(this@PaymentActivity))
@@ -196,11 +196,11 @@ class PaymentActivity : AppCompatActivity() {
     private fun updateConfirmPaymentButton() {
         val price = paymentSession.paymentSessionData.cartTotal
 
-        confirmPaymentButton.text = getString(R.string.pay_label, StoreUtils.getPriceString(price, null))
+        btn_confirm_payment.text = getString(R.string.pay_label, StoreUtils.getPriceString(price, null))
     }
 
     private fun addCartItems() {
-        cartItemLayout.removeAllViewsInLayout()
+        cart_items.removeAllViewsInLayout()
         val currencySymbol = storeCart.currency.getSymbol(Locale.US)
 
         addLineItems(currencySymbol, storeCart.lineItems)
@@ -209,17 +209,17 @@ class PaymentActivity : AppCompatActivity() {
             listOf(StoreLineItem(getString(R.string.checkout_shipping_cost_label), 1, shippingCosts)))
 
         val totalView = layoutInflater
-            .inflate(R.layout.cart_item, cartItemLayout, false)
+            .inflate(R.layout.cart_item, cart_items, false)
         setupTotalPriceView(totalView, currencySymbol)
-        cartItemLayout.addView(totalView)
+        cart_items.addView(totalView)
     }
 
     private fun addLineItems(currencySymbol: String, items: List<StoreLineItem>) {
         for (item in items) {
             val view = layoutInflater.inflate(
-                R.layout.cart_item, cartItemLayout, false)
+                R.layout.cart_item, cart_items, false)
             fillOutCartItemView(item, view, currencySymbol)
-            cartItemLayout.addView(view)
+            cart_items.addView(view)
         }
     }
 
@@ -364,9 +364,9 @@ class PaymentActivity : AppCompatActivity() {
             }
         } else if (stripeIntent.status == StripeIntent.Status.RequiresPaymentMethod) {
             // reset payment method and shipping if authentication fails
-            paymentSession = createPaymentSession()
-            enterPaymentInfo.text = getString(R.string.add_payment_method)
-            enterShippingInfo.text = getString(R.string.add_shipping_details)
+            initPaymentSession()
+            add_payment_method.text = getString(R.string.add_payment_method)
+            add_shipping_info.text = getString(R.string.add_shipping_details)
         } else {
             displayError(
                 "Unhandled Payment Intent Status: " + stripeIntent.status.toString())
@@ -429,47 +429,35 @@ class PaymentActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun createPaymentSession(): PaymentSession {
-        val paymentSession = PaymentSession(
-            this,
-            PaymentSessionConfig.Builder()
-                .setPrepopulatedShippingInfo(exampleShippingInfo)
-                .setShippingInformationValidator(ShippingInfoValidator())
-                .setShippingMethodsFactory(ShippingMethodsFactory())
-                .setBillingAddressFields(BillingAddressFields.PostalCode)
-                .setShouldShowGooglePay(true)
-                .build()
-        )
+    private fun initPaymentSession() {
         paymentSession.init(PaymentSessionListenerImpl(this))
         paymentSession.setCartTotal(storeCart.totalPrice)
 
         val isPaymentReadyToCharge =
             paymentSession.paymentSessionData.isPaymentReadyToCharge
-        confirmPaymentButton.isEnabled = isPaymentReadyToCharge
-        setupPaymentCredentialsButton.isEnabled = isPaymentReadyToCharge
-
-        return paymentSession
+        btn_confirm_payment.isEnabled = isPaymentReadyToCharge
+        btn_setup_intent.isEnabled = isPaymentReadyToCharge
     }
 
     private fun startLoading() {
-        progressBar.visibility = View.VISIBLE
-        enterPaymentInfo.isEnabled = false
-        enterShippingInfo.isEnabled = false
+        progress_bar.visibility = View.VISIBLE
+        add_payment_method.isEnabled = false
+        add_shipping_info.isEnabled = false
 
-        confirmPaymentButton.tag = confirmPaymentButton.isEnabled
-        confirmPaymentButton.isEnabled = false
+        btn_confirm_payment.tag = btn_confirm_payment.isEnabled
+        btn_confirm_payment.isEnabled = false
 
-        setupPaymentCredentialsButton.tag = setupPaymentCredentialsButton.isEnabled
-        setupPaymentCredentialsButton.isEnabled = false
+        btn_setup_intent.tag = btn_setup_intent.isEnabled
+        btn_setup_intent.isEnabled = false
     }
 
     private fun stopLoading() {
-        progressBar.visibility = View.INVISIBLE
-        enterPaymentInfo.isEnabled = true
-        enterShippingInfo.isEnabled = true
+        progress_bar.visibility = View.INVISIBLE
+        add_payment_method.isEnabled = true
+        add_shipping_info.isEnabled = true
 
-        confirmPaymentButton.isEnabled = java.lang.Boolean.TRUE == confirmPaymentButton.tag
-        setupPaymentCredentialsButton.isEnabled = java.lang.Boolean.TRUE == setupPaymentCredentialsButton.tag
+        btn_confirm_payment.isEnabled = java.lang.Boolean.TRUE == btn_confirm_payment.tag
+        btn_setup_intent.isEnabled = java.lang.Boolean.TRUE == btn_setup_intent.tag
     }
 
     private fun getPaymentMethodDescription(paymentMethod: PaymentMethod): String {
@@ -496,7 +484,7 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun onPaymentSessionDataChanged(data: PaymentSessionData) {
         data.shippingMethod?.let { shippingMethod ->
-            enterShippingInfo.text = shippingMethod.label
+            add_shipping_info.text = shippingMethod.label
             shippingCosts = shippingMethod.amount
             paymentSession.setCartTotal(storeCart.totalPrice + shippingCosts)
             addCartItems()
@@ -504,12 +492,12 @@ class PaymentActivity : AppCompatActivity() {
         }
 
         data.paymentMethod?.let { paymentMethod ->
-            enterPaymentInfo.text = getPaymentMethodDescription(paymentMethod)
+            add_payment_method.text = getPaymentMethodDescription(paymentMethod)
         }
 
         if (data.isPaymentReadyToCharge) {
-            confirmPaymentButton.isEnabled = true
-            setupPaymentCredentialsButton.isEnabled = true
+            btn_confirm_payment.isEnabled = true
+            btn_setup_intent.isEnabled = true
         }
     }
 

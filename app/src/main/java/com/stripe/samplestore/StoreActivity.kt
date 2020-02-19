@@ -4,15 +4,14 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.stripe.android.CustomerSession
 import com.stripe.android.PaymentConfiguration
 import com.stripe.samplestore.service.SampleStoreEphemeralKeyProvider
 import io.reactivex.disposables.CompositeDisposable
+import kotlinx.android.synthetic.main.activity_store.fab_checkout
 
 class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListener {
 
@@ -22,9 +21,13 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
 
     private val compositeDisposable = CompositeDisposable()
 
-    private lateinit var goToCartButton: FloatingActionButton
-    private lateinit var storeAdapter: StoreAdapter
-    private lateinit var ephemeralKeyProvider: SampleStoreEphemeralKeyProvider
+    private val storeAdapter: StoreAdapter by lazy {
+        StoreAdapter(this, priceMultiplier)
+    }
+
+    private val ephemeralKeyProvider: SampleStoreEphemeralKeyProvider by lazy {
+        SampleStoreEphemeralKeyProvider(applicationContext, settings.stripeAccountId)
+    }
 
     private val priceMultiplier: Float
         get() {
@@ -43,10 +46,8 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
         setContentView(R.layout.activity_store)
 
         PaymentConfiguration.init(this, settings.publishableKey)
-        goToCartButton = findViewById(R.id.fab_checkout)
-        storeAdapter = StoreAdapter(this, priceMultiplier)
 
-        goToCartButton.hide()
+        fab_checkout.hide()
         setSupportActionBar(findViewById(R.id.my_toolbar))
 
         val recyclerView = findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rv_store_items)
@@ -54,7 +55,7 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
         recyclerView.addItemDecoration(ItemDivider(this, R.drawable.item_divider))
         recyclerView.adapter = storeAdapter
 
-        goToCartButton.setOnClickListener { storeAdapter.launchPurchaseActivityWithCart() }
+        fab_checkout.setOnClickListener { storeAdapter.launchPurchaseActivityWithCart() }
         setupCustomerSession(settings.stripeAccountId)
     }
 
@@ -67,10 +68,9 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (requestCode == PURCHASE_REQUEST &&
-            resultCode == Activity.RESULT_OK &&
-            data!!.extras != null) {
-            val price = data.extras!!.getLong(EXTRA_PRICE_PAID, -1L)
+        val extras = data?.extras
+        if (requestCode == PURCHASE_REQUEST && resultCode == Activity.RESULT_OK && extras != null) {
+            val price = extras.getLong(EXTRA_PRICE_PAID, -1L)
             if (price != -1L) {
                 displayPurchase(price)
             } else {
@@ -82,46 +82,36 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
 
     override fun onTotalItemsChanged(totalItems: Int) {
         if (totalItems > 0) {
-            goToCartButton.show()
+            fab_checkout.show()
         } else {
-            goToCartButton.hide()
+            fab_checkout.hide()
         }
     }
 
     private fun displayPurchase(price: Long) {
-        val dialogView = LayoutInflater.from(this)
-            .inflate(R.layout.purchase_complete_notification, null)
-
-        val emojiView = dialogView.findViewById<TextView>(R.id.dlg_emoji_display)
-        // Show a smiley face!
-        emojiView.text = StoreUtils.getEmojiByUnicode(0x1F642)
-
-        val priceView = dialogView.findViewById<TextView>(R.id.dlg_price_display)
-        priceView.text = StoreUtils.getPriceString(price, null)
-
-        AlertDialog.Builder(this)
-            .setView(dialogView)
-            .create()
-            .show()
+        showSuccessDialog(
+            R.string.purchase_successful,
+            getString(R.string.total, StoreUtils.getPriceString(price, null))
+        )
     }
 
     private fun displaySetupComplete() {
-        val dialogView = LayoutInflater.from(this)
-            .inflate(R.layout.setup_complete_notification, null)
+        showSuccessDialog(
+            R.string.setup_successful
+        )
+    }
 
-        val emojiView = dialogView.findViewById<TextView>(R.id.dlg_emoji_display)
-        // Show a smiley face!
-        emojiView.text = StoreUtils.getEmojiByUnicode(0x1F642)
-
-        AlertDialog.Builder(this)
-            .setView(dialogView)
+    private fun showSuccessDialog(@StringRes titleRes: Int, message: String? = null) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(titleRes)
+            .setMessage(message)
+            .setPositiveButton(android.R.string.ok) { dialog, _ -> dialog.dismiss() }
             .create()
             .show()
     }
 
     private fun setupCustomerSession(stripeAccountId: String?) {
         // CustomerSession only needs to be initialized once per app.
-        ephemeralKeyProvider = SampleStoreEphemeralKeyProvider(applicationContext, stripeAccountId)
         CustomerSession.initCustomerSession(this, ephemeralKeyProvider, stripeAccountId)
     }
 
