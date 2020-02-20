@@ -6,23 +6,28 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.stripe.android.CustomerSession
 import com.stripe.android.PaymentConfiguration
 import com.stripe.samplestore.service.SampleStoreEphemeralKeyProvider
-import io.reactivex.disposables.CompositeDisposable
 import kotlinx.android.synthetic.main.activity_store.fab_checkout
+import kotlinx.android.synthetic.main.activity_store.rv_store_items
 
-class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListener {
+class StoreActivity : AppCompatActivity() {
 
     private val settings: Settings by lazy {
         Settings(applicationContext)
     }
 
-    private val compositeDisposable = CompositeDisposable()
-
     private val storeAdapter: StoreAdapter by lazy {
-        StoreAdapter(this, priceMultiplier)
+        StoreAdapter(this, priceMultiplier) { hasItems ->
+            if (hasItems) {
+                fab_checkout.show()
+            } else {
+                fab_checkout.hide()
+            }
+        }
     }
 
     private val ephemeralKeyProvider: SampleStoreEphemeralKeyProvider by lazy {
@@ -50,17 +55,17 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
         fab_checkout.hide()
         setSupportActionBar(findViewById(R.id.my_toolbar))
 
-        val recyclerView = findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rv_store_items)
-        recyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
-        recyclerView.addItemDecoration(ItemDivider(this, R.drawable.item_divider))
-        recyclerView.adapter = storeAdapter
+        rv_store_items.also {
+            it.layoutManager = LinearLayoutManager(this)
+            it.addItemDecoration(ItemDivider(this, R.drawable.item_divider))
+            it.adapter = storeAdapter
+        }
 
         fab_checkout.setOnClickListener { storeAdapter.launchPurchaseActivityWithCart() }
         setupCustomerSession(settings.stripeAccountId)
     }
 
     override fun onDestroy() {
-        compositeDisposable.dispose()
         ephemeralKeyProvider.destroy()
         super.onDestroy()
     }
@@ -80,18 +85,10 @@ class StoreActivity : AppCompatActivity(), StoreAdapter.TotalItemsChangedListene
         }
     }
 
-    override fun onTotalItemsChanged(totalItems: Int) {
-        if (totalItems > 0) {
-            fab_checkout.show()
-        } else {
-            fab_checkout.hide()
-        }
-    }
-
     private fun displayPurchase(price: Long) {
         showSuccessDialog(
             R.string.purchase_successful,
-            getString(R.string.total, StoreUtils.getPriceString(price, null))
+            getString(R.string.total_price, StoreUtils.getPriceString(price, null))
         )
     }
 

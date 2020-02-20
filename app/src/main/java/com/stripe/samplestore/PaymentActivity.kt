@@ -114,14 +114,20 @@ class PaymentActivity : AppCompatActivity() {
             .build()
         val uiCustomization =
             PaymentAuthConfig.Stripe3ds2UiCustomization.Builder.createWithAppTheme(this)
-                .setButtonCustomization(selectCustomization,
-                    PaymentAuthConfig.Stripe3ds2UiCustomization.ButtonType.SELECT)
+                .setButtonCustomization(
+                    selectCustomization,
+                    PaymentAuthConfig.Stripe3ds2UiCustomization.ButtonType.SELECT
+                )
                 .build()
-        PaymentAuthConfig.init(PaymentAuthConfig.Builder()
-            .set3ds2Config(PaymentAuthConfig.Stripe3ds2Config.Builder()
-                .setUiCustomization(uiCustomization)
-                .build())
-            .build())
+        PaymentAuthConfig.init(
+            PaymentAuthConfig.Builder()
+                .set3ds2Config(
+                    PaymentAuthConfig.Stripe3ds2Config.Builder()
+                        .setUiCustomization(uiCustomization)
+                        .build()
+                )
+                .build()
+        )
 
         initPaymentSession()
 
@@ -137,12 +143,14 @@ class PaymentActivity : AppCompatActivity() {
         compositeDisposable.add(RxView.clicks(btn_confirm_payment)
             .subscribe {
                 customerSession.retrieveCurrentCustomer(
-                    PaymentIntentCustomerRetrievalListener(this@PaymentActivity))
+                    PaymentIntentCustomerRetrievalListener(this@PaymentActivity)
+                )
             })
         compositeDisposable.addAll(RxView.clicks(btn_setup_intent)
             .subscribe {
                 customerSession.retrieveCurrentCustomer(
-                    SetupIntentCustomerRetrievalListener(this@PaymentActivity))
+                    SetupIntentCustomerRetrievalListener(this@PaymentActivity)
+                )
             })
     }
 
@@ -196,7 +204,10 @@ class PaymentActivity : AppCompatActivity() {
     private fun updateConfirmPaymentButton() {
         val price = paymentSession.paymentSessionData.cartTotal
 
-        btn_confirm_payment.text = getString(R.string.pay_label, StoreUtils.getPriceString(price, null))
+        btn_confirm_payment.text = getString(
+            R.string.pay_label,
+            StoreUtils.getPriceString(price, null)
+        )
     }
 
     private fun addCartItems() {
@@ -205,8 +216,16 @@ class PaymentActivity : AppCompatActivity() {
 
         addLineItems(currencySymbol, storeCart.lineItems)
 
-        addLineItems(currencySymbol,
-            listOf(StoreLineItem(getString(R.string.checkout_shipping_cost_label), 1, shippingCosts)))
+        addLineItems(
+            currencySymbol, listOf(
+                StoreLineItem(
+                    getString(R.string.checkout_shipping_cost_label),
+                    1,
+                    shippingCosts,
+                    false
+                )
+            )
+        )
 
         val totalView = layoutInflater
             .inflate(R.layout.cart_item, cart_items, false)
@@ -215,9 +234,22 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun addLineItems(currencySymbol: String, items: List<StoreLineItem>) {
-        for (item in items) {
+        items.forEach { item ->
             val view = layoutInflater.inflate(
-                R.layout.cart_item, cart_items, false)
+                R.layout.cart_item, cart_items, false
+            )
+            val displayPrice = getDisplayPrice(currencySymbol, item.totalPrice.toInt())
+            val cartItem = view.findViewById<View>(R.id.cart_item)
+            cartItem.contentDescription = if (item.isProduct) {
+                getString(
+                    R.string.cart_item_description,
+                    item.quantity,
+                    item.description,
+                    displayPrice
+                )
+            } else {
+                getString(R.string.shipping_price, displayPrice)
+            }
             fillOutCartItemView(item, view, currencySymbol)
             cart_items.addView(view)
         }
@@ -227,10 +259,7 @@ class PaymentActivity : AppCompatActivity() {
         val itemViews = getItemViews(view)
         val totalPrice = paymentSession.paymentSessionData.cartTotal
         itemViews[0].text = getString(R.string.checkout_total_cost_label)
-        val price = PayWithGoogleUtils.getPriceString(totalPrice.toInt(),
-            storeCart.currency)
-        val displayPrice = currencySymbol + price
-        itemViews[3].text = displayPrice
+        itemViews[3].text = getDisplayPrice(currencySymbol, totalPrice.toInt())
     }
 
     private fun fillOutCartItemView(item: StoreLineItem, view: View, currencySymbol: String) {
@@ -238,27 +267,24 @@ class PaymentActivity : AppCompatActivity() {
 
         itemViews[0].text = item.description
 
-        if (getString(R.string.checkout_shipping_cost_label) != item.description) {
+        if (item.isProduct) {
             val quantityPriceString = "X " + item.quantity + " @"
             itemViews[1].text = quantityPriceString
-
-            val unitPriceString = currencySymbol + PayWithGoogleUtils.getPriceString(item.unitPrice.toInt(),
-                storeCart.currency)
-            itemViews[2].text = unitPriceString
+            // unit price
+            itemViews[2].text = getDisplayPrice(currencySymbol, item.unitPrice.toInt())
         }
 
-        val totalPriceString = currencySymbol +
-            PayWithGoogleUtils.getPriceString(item.totalPrice.toInt(), storeCart.currency)
-        itemViews[3].text = totalPriceString
+        // total price
+        itemViews[3].text = getDisplayPrice(currencySymbol, item.totalPrice.toInt())
     }
 
     @Size(value = 4)
-    private fun getItemViews(view: View): Array<TextView> {
+    private fun getItemViews(view: View): List<TextView> {
         val labelView = view.findViewById<TextView>(R.id.tv_cart_emoji)
         val quantityView = view.findViewById<TextView>(R.id.tv_cart_quantity)
         val unitPriceView = view.findViewById<TextView>(R.id.tv_cart_unit_price)
         val totalPriceView = view.findViewById<TextView>(R.id.tv_cart_total_price)
-        return arrayOf(labelView, quantityView, unitPriceView, totalPriceView)
+        return listOf(labelView, quantityView, unitPriceView, totalPriceView)
     }
 
     private fun createCapturePaymentParams(
@@ -345,8 +371,8 @@ class PaymentActivity : AppCompatActivity() {
         val alertDialog = AlertDialog.Builder(this).create()
         alertDialog.setTitle("Error")
         alertDialog.setMessage(errorMessage)
-        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK") {
-            dialog, _ -> dialog.dismiss()
+        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK") { dialog, _ ->
+            dialog.dismiss()
         }
         alertDialog.show()
     }
@@ -369,7 +395,8 @@ class PaymentActivity : AppCompatActivity() {
             add_shipping_info.text = getString(R.string.add_shipping_details)
         } else {
             displayError(
-                "Unhandled Payment Intent Status: " + stripeIntent.status.toString())
+                "Unhandled Payment Intent Status: " + stripeIntent.status.toString()
+            )
         }
     }
 
@@ -418,7 +445,8 @@ class PaymentActivity : AppCompatActivity() {
     private fun finishPayment() {
         paymentSession.onCompleted()
         val data = StoreActivity.createPurchaseCompleteIntent(
-            storeCart.totalPrice + shippingCosts)
+            storeCart.totalPrice + shippingCosts
+        )
         setResult(Activity.RESULT_OK, data)
         finish()
     }
@@ -499,6 +527,10 @@ class PaymentActivity : AppCompatActivity() {
             btn_confirm_payment.isEnabled = true
             btn_setup_intent.isEnabled = true
         }
+    }
+
+    private fun getDisplayPrice(currencySymbol: String, price: Int): String {
+        return currencySymbol + PayWithGoogleUtils.getPriceString(price, storeCart.currency)
     }
 
     private class PaymentSessionListenerImpl constructor(

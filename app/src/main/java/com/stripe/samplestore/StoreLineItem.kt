@@ -10,7 +10,8 @@ import kotlinx.android.parcel.Parcelize
 data class StoreLineItem(
     val description: String,
     val quantity: Int,
-    val unitPrice: Long
+    val unitPrice: Long,
+    val isProduct: Boolean = true
 ) : Parcelable {
     internal val totalPrice: Long
         get() = unitPrice * quantity
