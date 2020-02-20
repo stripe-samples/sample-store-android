@@ -6,8 +6,8 @@ import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import androidx.annotation.Size
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jakewharton.rxbinding2.view.RxView
 import com.stripe.android.ApiResultCallback
 import com.stripe.android.CustomerSession
@@ -91,6 +91,9 @@ class PaymentActivity : AppCompatActivity() {
 
     private var shippingCosts = 0L
 
+    private val totalPrice: Long
+        get() = storeCart.totalPrice + shippingCosts
+
     private val exampleShippingInfo: ShippingInformation
         get() {
             val address = Address.Builder()
@@ -103,6 +106,8 @@ class PaymentActivity : AppCompatActivity() {
                 .build()
             return ShippingInformation(address, "Fake Name", "(555) 555-5555")
         }
+
+    private var paymentSessionData: PaymentSessionData? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -131,9 +136,9 @@ class PaymentActivity : AppCompatActivity() {
 
         initPaymentSession()
 
-        addCartItems()
+        updateCartItems(totalPrice.toInt())
 
-        updateConfirmPaymentButton()
+        updateConfirmPaymentButton(totalPrice)
         compositeDisposable.add(RxView.clicks(add_shipping_info)
             .subscribe { paymentSession.presentShippingFlow() })
         compositeDisposable.add(RxView.clicks(add_payment_method)
@@ -159,7 +164,6 @@ class PaymentActivity : AppCompatActivity() {
      */
     override fun onDestroy() {
         compositeDisposable.dispose()
-        paymentSession.onDestroy()
         super.onDestroy()
     }
 
@@ -201,17 +205,19 @@ class PaymentActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateConfirmPaymentButton() {
-        val price = paymentSession.paymentSessionData.cartTotal
-
+    private fun updateConfirmPaymentButton(cartTotal: Long) {
         btn_confirm_payment.text = getString(
             R.string.pay_label,
-            StoreUtils.getPriceString(price, null)
+            StoreUtils.getPriceString(cartTotal, null)
         )
     }
 
-    private fun addCartItems() {
+    private fun updateCartItems(
+        totalPrice: Int,
+        shippingCost: Int = 0
+    ) {
         cart_items.removeAllViewsInLayout()
+
         val currencySymbol = storeCart.currency.getSymbol(Locale.US)
 
         addLineItems(currencySymbol, storeCart.lineItems)
@@ -221,7 +227,7 @@ class PaymentActivity : AppCompatActivity() {
                 StoreLineItem(
                     getString(R.string.checkout_shipping_cost_label),
                     1,
-                    shippingCosts,
+                    shippingCost.toLong(),
                     false
                 )
             )
@@ -229,7 +235,11 @@ class PaymentActivity : AppCompatActivity() {
 
         val totalView = layoutInflater
             .inflate(R.layout.cart_item, cart_items, false)
-        setupTotalPriceView(totalView, currencySymbol)
+        setupTotalPriceView(
+            totalView,
+            currencySymbol,
+            totalPrice
+        )
         cart_items.addView(totalView)
     }
 
@@ -255,11 +265,14 @@ class PaymentActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupTotalPriceView(view: View, currencySymbol: String) {
+    private fun setupTotalPriceView(
+        view: View,
+        currencySymbol: String,
+        cartTotal: Int
+    ) {
         val itemViews = getItemViews(view)
-        val totalPrice = paymentSession.paymentSessionData.cartTotal
         itemViews[0].text = getString(R.string.checkout_total_cost_label)
-        itemViews[3].text = getDisplayPrice(currencySymbol, totalPrice.toInt())
+        itemViews[3].text = getDisplayPrice(currencySymbol, cartTotal)
     }
 
     private fun fillOutCartItemView(item: StoreLineItem, view: View, currencySymbol: String) {
@@ -326,55 +339,58 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun capturePayment(customerId: String) {
-        val paymentSessionData = paymentSession.paymentSessionData
-        if (paymentSessionData.paymentMethod == null) {
-            displayError("No payment method selected")
-            return
-        }
+        paymentSessionData?.let {
+            if (it.paymentMethod == null) {
+                displayError("No payment method selected")
+                return
+            }
 
-        val stripeResponse = service.capturePayment(
-            createCapturePaymentParams(paymentSessionData, customerId, settings.stripeAccountId)
-        )
-        compositeDisposable.add(stripeResponse
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnSubscribe { startLoading() }
-            .doFinally { stopLoading() }
-            .subscribe(
-                { onStripeIntentClientSecretResponse(it) },
-                { throwable -> displayError(throwable.localizedMessage) }
-            ))
+            val stripeResponse = service.capturePayment(
+                createCapturePaymentParams(it, customerId, settings.stripeAccountId)
+            )
+            compositeDisposable.add(stripeResponse
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnSubscribe { startLoading() }
+                .doFinally { stopLoading() }
+                .subscribe(
+                    { onStripeIntentClientSecretResponse(it) },
+                    { throwable -> displayError(throwable.localizedMessage) }
+                ))
+        }
     }
 
     private fun createSetupIntent(customerId: String) {
-        val paymentSessionData = paymentSession.paymentSessionData
-        if (paymentSessionData.paymentMethod == null) {
-            displayError("No payment method selected")
-            return
-        }
+        paymentSessionData?.let {
+            if (it.paymentMethod == null) {
+                displayError("No payment method selected")
+                return
+            }
 
-        val stripeResponse = service.createSetupIntent(
-            createSetupIntentParams(paymentSessionData, customerId, settings.stripeAccountId)
-        )
-        compositeDisposable.add(stripeResponse
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnSubscribe { startLoading() }
-            .doFinally { stopLoading() }
-            .subscribe(
-                { onStripeIntentClientSecretResponse(it) },
-                { throwable -> displayError(throwable.localizedMessage) }
-            ))
+            val stripeResponse = service.createSetupIntent(
+                createSetupIntentParams(it, customerId, settings.stripeAccountId)
+            )
+            compositeDisposable.add(stripeResponse
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnSubscribe { startLoading() }
+                .doFinally { stopLoading() }
+                .subscribe(
+                    { onStripeIntentClientSecretResponse(it) },
+                    { throwable -> displayError(throwable.localizedMessage) }
+                ))
+        }
     }
 
     private fun displayError(errorMessage: String?) {
-        val alertDialog = AlertDialog.Builder(this).create()
-        alertDialog.setTitle("Error")
-        alertDialog.setMessage(errorMessage)
-        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK") { dialog, _ ->
-            dialog.dismiss()
-        }
-        alertDialog.show()
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Error")
+            .setMessage(errorMessage)
+            .setNeutralButton("OK") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .create()
+            .show()
     }
 
     private fun processStripeIntent(stripeIntent: StripeIntent) {
@@ -460,11 +476,6 @@ class PaymentActivity : AppCompatActivity() {
     private fun initPaymentSession() {
         paymentSession.init(PaymentSessionListenerImpl(this))
         paymentSession.setCartTotal(storeCart.totalPrice)
-
-        val isPaymentReadyToCharge =
-            paymentSession.paymentSessionData.isPaymentReadyToCharge
-        btn_confirm_payment.isEnabled = isPaymentReadyToCharge
-        btn_setup_intent.isEnabled = isPaymentReadyToCharge
     }
 
     private fun startLoading() {
@@ -511,13 +522,16 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun onPaymentSessionDataChanged(data: PaymentSessionData) {
+        paymentSessionData = data
+
         data.shippingMethod?.let { shippingMethod ->
             add_shipping_info.text = shippingMethod.label
             shippingCosts = shippingMethod.amount
-            paymentSession.setCartTotal(storeCart.totalPrice + shippingCosts)
-            addCartItems()
-            updateConfirmPaymentButton()
         }
+
+        paymentSession.setCartTotal(totalPrice)
+        updateCartItems(totalPrice.toInt(), shippingCosts.toInt())
+        updateConfirmPaymentButton(totalPrice)
 
         data.paymentMethod?.let { paymentMethod ->
             add_payment_method.text = getPaymentMethodDescription(paymentMethod)
