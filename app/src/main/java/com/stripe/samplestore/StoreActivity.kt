@@ -10,11 +10,14 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.stripe.android.CustomerSession
 import com.stripe.android.PaymentConfiguration
+import com.stripe.samplestore.databinding.StoreActivityBinding
 import com.stripe.samplestore.service.SampleStoreEphemeralKeyProvider
-import kotlinx.android.synthetic.main.activity_store.fab_checkout
-import kotlinx.android.synthetic.main.activity_store.rv_store_items
 
 class StoreActivity : AppCompatActivity() {
+
+    private val viewBinding: StoreActivityBinding by lazy {
+        StoreActivityBinding.inflate(layoutInflater)
+    }
 
     private val settings: Settings by lazy {
         Settings(applicationContext)
@@ -23,9 +26,9 @@ class StoreActivity : AppCompatActivity() {
     private val storeAdapter: StoreAdapter by lazy {
         StoreAdapter(this, priceMultiplier) { hasItems ->
             if (hasItems) {
-                fab_checkout.show()
+                viewBinding.fab.show()
             } else {
-                fab_checkout.hide()
+                viewBinding.fab.hide()
             }
         }
     }
@@ -48,20 +51,22 @@ class StoreActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_store)
+        setContentView(viewBinding.root)
 
         PaymentConfiguration.init(this, settings.publishableKey)
 
-        fab_checkout.hide()
+        viewBinding.fab.hide()
         setSupportActionBar(findViewById(R.id.my_toolbar))
 
-        rv_store_items.also {
+        viewBinding.storeItems.also {
             it.layoutManager = LinearLayoutManager(this)
             it.addItemDecoration(ItemDivider(this, R.drawable.item_divider))
             it.adapter = storeAdapter
         }
 
-        fab_checkout.setOnClickListener { storeAdapter.launchPurchaseActivityWithCart() }
+        viewBinding.fab.setOnClickListener {
+            storeAdapter.launchPurchaseActivityWithCart()
+        }
         setupCustomerSession(settings.stripeAccountId)
     }
 

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/item"
+    android:id="@+id/item_container"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/store_item_background"
@@ -10,7 +10,7 @@
     >
 
     <TextView
-        android:id="@+id/tv_emoji"
+        android:id="@+id/label"
         android:layout_width="0dp"
         android:layout_weight="1"
         android:layout_height="wrap_content"
@@ -19,7 +19,7 @@
         />
 
     <ImageButton
-        android:id="@+id/btn_remove"
+        android:id="@+id/button_remove"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:padding="@dimen/button_padding"
@@ -30,7 +30,7 @@
         android:contentDescription="@null" />
 
     <TextView
-        android:id="@+id/tv_quantity"
+        android:id="@+id/quantity"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/emoji_left_margin"
@@ -42,7 +42,7 @@
         />
 
     <ImageButton
-        android:id="@+id/btn_add"
+        android:id="@+id/button_add"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:padding="@dimen/button_padding"
@@ -54,7 +54,7 @@
         android:contentDescription="@null" />
 
     <TextView
-        android:id="@+id/tv_price"
+        android:id="@+id/price"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"

@@ -29,7 +29,7 @@
                 android:background="@drawable/item_divider"/>
 
             <TextView
-                android:id="@+id/add_payment_method"
+                android:id="@+id/button_add_payment_method"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/add_payment_method"
@@ -46,7 +46,7 @@
                 android:background="@drawable/item_divider"/>
 
             <TextView
-                android:id="@+id/add_shipping_info"
+                android:id="@+id/button_add_shipping_info"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/add_shipping_details"
@@ -63,14 +63,14 @@
                 android:background="@drawable/item_divider"/>
 
             <Button
-                android:id="@+id/btn_confirm_payment"
+                android:id="@+id/button_confirm_payment"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:layout_marginTop="@dimen/payment_screen_spacing" />
 
             <Button
-                android:id="@+id/btn_setup_intent"
+                android:id="@+id/button_confirm_setup"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
