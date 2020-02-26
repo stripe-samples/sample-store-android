@@ -11,10 +11,6 @@ internal object StoreUtils {
 
     private const val CURRENCY_SIGN = '\u00A4'
 
-    fun getEmojiByUnicode(unicode: Int): String {
-        return String(Character.toChars(unicode))
-    }
-
     fun getPriceString(price: Long, currency: Currency?): String {
         val displayCurrency = currency ?: Currency.getInstance(Settings.CURRENCY)
 
@@ -32,7 +28,7 @@ internal object StoreUtils {
         }
 
         val beforeDecimal = totalLength - fractionDigits
-        for (i in 0 until beforeDecimal) {
+        repeat (beforeDecimal) {
             builder.append('#')
         }
         // So we display "$0.55" instead of "$.55"
@@ -40,15 +36,15 @@ internal object StoreUtils {
             builder.append('0')
         }
         builder.append('.')
-        for (i in 0 until fractionDigits) {
+        repeat (fractionDigits) {
             builder.append('0')
         }
         val modBreak = 10.0.pow(fractionDigits.toDouble())
         val decimalPrice = price / modBreak
 
-        val decimalFormat = DecimalFormat(builder.toString())
-        decimalFormat.currency = displayCurrency
-
-        return decimalFormat.format(decimalPrice)
+        return DecimalFormat(builder.toString()).let {
+            it.currency = displayCurrency
+            it.format(decimalPrice)
+        }
     }
 }
