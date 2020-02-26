@@ -4,8 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.TextView
-import androidx.annotation.Size
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jakewharton.rxbinding2.view.RxView
@@ -30,17 +28,13 @@ import com.stripe.android.model.ShippingInformation
 import com.stripe.android.model.ShippingMethod
 import com.stripe.android.model.StripeIntent
 import com.stripe.android.view.BillingAddressFields
+import com.stripe.samplestore.databinding.CartItemBinding
+import com.stripe.samplestore.databinding.PaymentActivityBinding
 import com.stripe.samplestore.service.BackendApi
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
-import kotlinx.android.synthetic.main.activity_payment.add_payment_method
-import kotlinx.android.synthetic.main.activity_payment.add_shipping_info
-import kotlinx.android.synthetic.main.activity_payment.btn_confirm_payment
-import kotlinx.android.synthetic.main.activity_payment.btn_setup_intent
-import kotlinx.android.synthetic.main.activity_payment.cart_items
-import kotlinx.android.synthetic.main.activity_payment.progress_bar
 import okhttp3.ResponseBody
 import org.json.JSONException
 import org.json.JSONObject
@@ -50,6 +44,10 @@ import java.util.HashMap
 import java.util.Locale
 
 class PaymentActivity : AppCompatActivity() {
+
+    private val viewBinding: PaymentActivityBinding by lazy {
+        PaymentActivityBinding.inflate(layoutInflater)
+    }
 
     private val settings: Settings by lazy {
         Settings(applicationContext)
@@ -111,7 +109,7 @@ class PaymentActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_payment)
+        setContentView(viewBinding.root)
 
         val selectCustomization = PaymentAuthConfig.Stripe3ds2ButtonCustomization.Builder()
             .setBackgroundColor("#EC4847")
@@ -139,19 +137,19 @@ class PaymentActivity : AppCompatActivity() {
         updateCartItems(totalPrice.toInt())
 
         updateConfirmPaymentButton(totalPrice)
-        compositeDisposable.add(RxView.clicks(add_shipping_info)
+        compositeDisposable.add(RxView.clicks(viewBinding.buttonAddShippingInfo)
             .subscribe { paymentSession.presentShippingFlow() })
-        compositeDisposable.add(RxView.clicks(add_payment_method)
+        compositeDisposable.add(RxView.clicks(viewBinding.buttonAddPaymentMethod)
             .subscribe { paymentSession.presentPaymentMethodSelection() })
 
         val customerSession = CustomerSession.getInstance()
-        compositeDisposable.add(RxView.clicks(btn_confirm_payment)
+        compositeDisposable.add(RxView.clicks(viewBinding.buttonConfirmPayment)
             .subscribe {
                 customerSession.retrieveCurrentCustomer(
                     PaymentIntentCustomerRetrievalListener(this@PaymentActivity)
                 )
             })
-        compositeDisposable.addAll(RxView.clicks(btn_setup_intent)
+        compositeDisposable.addAll(RxView.clicks(viewBinding.buttonConfirmSetup)
             .subscribe {
                 customerSession.retrieveCurrentCustomer(
                     SetupIntentCustomerRetrievalListener(this@PaymentActivity)
@@ -206,7 +204,7 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun updateConfirmPaymentButton(cartTotal: Long) {
-        btn_confirm_payment.text = getString(
+        viewBinding.buttonConfirmPayment.text = getString(
             R.string.pay_label,
             StoreUtils.getPriceString(cartTotal, null)
         )
@@ -216,7 +214,7 @@ class PaymentActivity : AppCompatActivity() {
         totalPrice: Int,
         shippingCost: Int = 0
     ) {
-        cart_items.removeAllViewsInLayout()
+        viewBinding.cartItems.removeAllViewsInLayout()
 
         val currencySymbol = storeCart.currency.getSymbol(Locale.US)
 
@@ -233,23 +231,22 @@ class PaymentActivity : AppCompatActivity() {
             )
         )
 
-        val totalView = layoutInflater
-            .inflate(R.layout.cart_item, cart_items, false)
-        setupTotalPriceView(
-            totalView,
-            currencySymbol,
-            totalPrice
-        )
-        cart_items.addView(totalView)
+        val totalViewBinding = CartItemBinding.inflate(
+            layoutInflater, viewBinding.cartItems, false
+        ).also {
+            it.label.text = getString(R.string.checkout_total_cost_label)
+            it.totalPrice.text = getDisplayPrice(currencySymbol, totalPrice)
+        }
+        viewBinding.cartItems.addView(totalViewBinding.root)
     }
 
     private fun addLineItems(currencySymbol: String, items: List<StoreLineItem>) {
         items.forEach { item ->
-            val view = layoutInflater.inflate(
-                R.layout.cart_item, cart_items, false
+            val cartItemViewBinding = CartItemBinding.inflate(
+                layoutInflater, viewBinding.cartItems, false
             )
             val displayPrice = getDisplayPrice(currencySymbol, item.totalPrice.toInt())
-            val cartItem = view.findViewById<View>(R.id.cart_item)
+            val cartItem = cartItemViewBinding.cartItem
             cartItem.contentDescription = if (item.isProduct) {
                 getString(
                     R.string.cart_item_description,
@@ -260,44 +257,25 @@ class PaymentActivity : AppCompatActivity() {
             } else {
                 getString(R.string.shipping_price, displayPrice)
             }
-            fillOutCartItemView(item, view, currencySymbol)
-            cart_items.addView(view)
+            fillOutCartItemView(item, cartItemViewBinding, currencySymbol)
+            viewBinding.cartItems.addView(cartItemViewBinding.root)
         }
     }
 
-    private fun setupTotalPriceView(
-        view: View,
-        currencySymbol: String,
-        cartTotal: Int
+    private fun fillOutCartItemView(
+        item: StoreLineItem, viewBinding: CartItemBinding, currencySymbol: String
     ) {
-        val itemViews = getItemViews(view)
-        itemViews[0].text = getString(R.string.checkout_total_cost_label)
-        itemViews[3].text = getDisplayPrice(currencySymbol, cartTotal)
-    }
-
-    private fun fillOutCartItemView(item: StoreLineItem, view: View, currencySymbol: String) {
-        val itemViews = getItemViews(view)
-
-        itemViews[0].text = item.description
+        viewBinding.label.text = item.description
 
         if (item.isProduct) {
             val quantityPriceString = "X " + item.quantity + " @"
-            itemViews[1].text = quantityPriceString
+            viewBinding.quantity.text = quantityPriceString
             // unit price
-            itemViews[2].text = getDisplayPrice(currencySymbol, item.unitPrice.toInt())
+            viewBinding.unitPrice.text = getDisplayPrice(currencySymbol, item.unitPrice.toInt())
         }
 
         // total price
-        itemViews[3].text = getDisplayPrice(currencySymbol, item.totalPrice.toInt())
-    }
-
-    @Size(value = 4)
-    private fun getItemViews(view: View): List<TextView> {
-        val labelView = view.findViewById<TextView>(R.id.tv_cart_emoji)
-        val quantityView = view.findViewById<TextView>(R.id.tv_cart_quantity)
-        val unitPriceView = view.findViewById<TextView>(R.id.tv_cart_unit_price)
-        val totalPriceView = view.findViewById<TextView>(R.id.tv_cart_total_price)
-        return listOf(labelView, quantityView, unitPriceView, totalPriceView)
+        viewBinding.totalPrice.text = getDisplayPrice(currencySymbol, item.totalPrice.toInt())
     }
 
     private fun createCapturePaymentParams(
@@ -407,8 +385,8 @@ class PaymentActivity : AppCompatActivity() {
         } else if (stripeIntent.status == StripeIntent.Status.RequiresPaymentMethod) {
             // reset payment method and shipping if authentication fails
             initPaymentSession()
-            add_payment_method.text = getString(R.string.add_payment_method)
-            add_shipping_info.text = getString(R.string.add_shipping_details)
+            viewBinding.buttonAddPaymentMethod.text = getString(R.string.add_payment_method)
+            viewBinding.buttonAddShippingInfo.text = getString(R.string.add_shipping_details)
         } else {
             displayError(
                 "Unhandled Payment Intent Status: " + stripeIntent.status.toString()
@@ -479,24 +457,24 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun startLoading() {
-        progress_bar.visibility = View.VISIBLE
-        add_payment_method.isEnabled = false
-        add_shipping_info.isEnabled = false
+        viewBinding.progressBar.visibility = View.VISIBLE
+        viewBinding.buttonAddPaymentMethod.isEnabled = false
+        viewBinding.buttonAddShippingInfo.isEnabled = false
 
-        btn_confirm_payment.tag = btn_confirm_payment.isEnabled
-        btn_confirm_payment.isEnabled = false
+        viewBinding.buttonConfirmPayment.tag = viewBinding.buttonConfirmPayment.isEnabled
+        viewBinding.buttonConfirmPayment.isEnabled = false
 
-        btn_setup_intent.tag = btn_setup_intent.isEnabled
-        btn_setup_intent.isEnabled = false
+        viewBinding.buttonConfirmSetup.tag = viewBinding.buttonConfirmSetup.isEnabled
+        viewBinding.buttonConfirmSetup.isEnabled = false
     }
 
     private fun stopLoading() {
-        progress_bar.visibility = View.INVISIBLE
-        add_payment_method.isEnabled = true
-        add_shipping_info.isEnabled = true
+        viewBinding.progressBar.visibility = View.INVISIBLE
+        viewBinding.buttonAddPaymentMethod.isEnabled = true
+        viewBinding.buttonAddShippingInfo.isEnabled = true
 
-        btn_confirm_payment.isEnabled = java.lang.Boolean.TRUE == btn_confirm_payment.tag
-        btn_setup_intent.isEnabled = java.lang.Boolean.TRUE == btn_setup_intent.tag
+        viewBinding.buttonConfirmPayment.isEnabled = java.lang.Boolean.TRUE == viewBinding.buttonConfirmPayment.tag
+        viewBinding.buttonConfirmSetup.isEnabled = java.lang.Boolean.TRUE == viewBinding.buttonConfirmSetup.tag
     }
 
     private fun getPaymentMethodDescription(paymentMethod: PaymentMethod): String {
@@ -525,7 +503,7 @@ class PaymentActivity : AppCompatActivity() {
         paymentSessionData = data
 
         data.shippingMethod?.let { shippingMethod ->
-            add_shipping_info.text = shippingMethod.label
+            viewBinding.buttonAddShippingInfo.text = shippingMethod.label
             shippingCosts = shippingMethod.amount
         }
 
@@ -534,12 +512,12 @@ class PaymentActivity : AppCompatActivity() {
         updateConfirmPaymentButton(totalPrice)
 
         data.paymentMethod?.let { paymentMethod ->
-            add_payment_method.text = getPaymentMethodDescription(paymentMethod)
+            viewBinding.buttonAddPaymentMethod.text = getPaymentMethodDescription(paymentMethod)
         }
 
         if (data.isPaymentReadyToCharge) {
-            btn_confirm_payment.isEnabled = true
-            btn_setup_intent.isEnabled = true
+            viewBinding.buttonConfirmPayment.isEnabled = true
+            viewBinding.buttonConfirmSetup.isEnabled = true
         }
     }
 

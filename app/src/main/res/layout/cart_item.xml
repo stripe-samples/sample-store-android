@@ -8,7 +8,7 @@
     android:focusable="true">
 
     <TextView
-        android:id="@+id/tv_cart_emoji"
+        android:id="@+id/label"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:layout_marginTop="@dimen/item_padding"
@@ -17,7 +17,7 @@
         />
 
     <TextView
-        android:id="@+id/tv_cart_quantity"
+        android:id="@+id/quantity"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:layout_marginStart="@dimen/shopping_cart_margin"
@@ -26,7 +26,7 @@
         />
 
     <TextView
-        android:id="@+id/tv_cart_unit_price"
+        android:id="@+id/unit_price"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:layout_marginStart="@dimen/item_padding"
@@ -35,7 +35,7 @@
         />
 
     <TextView
-        android:id="@+id/tv_cart_total_price"
+        android:id="@+id/total_price"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"

@@ -3,9 +3,8 @@ package com.stripe.samplestore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageButton
-import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.stripe.samplestore.databinding.StoreItemBinding
 import java.util.Currency
 
 internal class StoreAdapter internal constructor(
@@ -55,10 +54,10 @@ internal class StoreAdapter internal constructor(
             price = getPrice(position),
             quantity = cart[position]
         )
-        holder.addButton.setOnClickListener {
+        holder.viewBinding.buttonAdd.setOnClickListener {
             adjustItemQuantity(it, holder.adapterPosition, true)
         }
-        holder.removeButton.setOnClickListener {
+        holder.viewBinding.buttonRemove.setOnClickListener {
             adjustItemQuantity(it, holder.adapterPosition, false)
         }
     }
@@ -72,10 +71,14 @@ internal class StoreAdapter internal constructor(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val pollingView = LayoutInflater.from(parent.context)
-            .inflate(R.layout.store_item, parent, false)
-
-        return ViewHolder(pollingView, currency)
+        return ViewHolder(
+            StoreItemBinding.inflate(
+                LayoutInflater.from(parent.context),
+                parent,
+                false
+            ),
+            currency
+        )
     }
 
     internal fun launchPurchaseActivityWithCart() {
@@ -108,32 +111,25 @@ internal class StoreAdapter internal constructor(
     }
 
     internal class ViewHolder(
-        itemView: View,
+        internal val viewBinding: StoreItemBinding,
         private val currency: Currency
-    ) : RecyclerView.ViewHolder(itemView) {
-        private val container: View = itemView.findViewById(R.id.item)
-        private val emojiTextView: TextView = itemView.findViewById(R.id.tv_emoji)
-        private val priceTextView: TextView = itemView.findViewById(R.id.tv_price)
-        private val quantityTextView: TextView = itemView.findViewById(R.id.tv_quantity)
-        internal val addButton: ImageButton = itemView.findViewById(R.id.btn_add)
-        internal val removeButton: ImageButton = itemView.findViewById(R.id.btn_remove)
-
+    ) : RecyclerView.ViewHolder(viewBinding.root) {
         fun bind(
             productName: String,
             price: Int,
             quantity: Int
         ) {
-            emojiTextView.text = productName
+            viewBinding.label.text = productName
             val res = itemView.context.resources
-            addButton.contentDescription = res.getString(R.string.add_item, productName)
-            removeButton.contentDescription = res.getString(R.string.remove_item, productName)
+            viewBinding.buttonAdd.contentDescription = res.getString(R.string.add_item, productName)
+            viewBinding.buttonRemove.contentDescription = res.getString(R.string.remove_item, productName)
 
             val displayPrice = StoreUtils.getPriceString(price.toLong(), currency)
-            priceTextView.text = displayPrice
+            viewBinding.price.text = displayPrice
 
-            quantityTextView.text = quantity.toString()
+            viewBinding.quantity.text = quantity.toString()
 
-            container.contentDescription = res.getString(
+            viewBinding.itemContainer.contentDescription = res.getString(
                 R.string.product_description,
                 productName,
                 quantity,
