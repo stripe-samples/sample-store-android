@@ -18,14 +18,10 @@ internal class StoreAdapter internal constructor(
 
     private var totalOrdered: Int = 0
 
-    private val products: List<String> = EMOJI_PRODUCTS.map {
-        StoreUtils.getEmojiByUnicode(it)
-    }
-
     // Note: our sample backend assumes USD as currency. This code would be
     // otherwise functional if you switched that assumption on the backend and passed
     // currency code as a parameter.
-    private val quantityOrdered: IntArray = IntArray(products.size)
+    private val cart: IntArray = IntArray(Product.values().size)
 
     init {
         setHasStableIds(true)
@@ -33,11 +29,11 @@ internal class StoreAdapter internal constructor(
 
     private fun adjustItemQuantity(view: View, index: Int, increase: Boolean) {
         if (increase) {
-            quantityOrdered[index]++
+            cart[index]++
             totalOrdered++
             itemsChangedCallback(totalOrdered > 0)
-        } else if (quantityOrdered[index] > 0) {
-            quantityOrdered[index]--
+        } else if (cart[index] > 0) {
+            cart[index]--
             totalOrdered--
             itemsChangedCallback(totalOrdered > 0)
         }
@@ -45,8 +41,8 @@ internal class StoreAdapter internal constructor(
         view.announceForAccessibility(
             activity.getString(
                 R.string.adjust_cart_product,
-                quantityOrdered[index],
-                products[index]
+                cart[index],
+                Product.values()[index]
             )
         )
 
@@ -55,9 +51,9 @@ internal class StoreAdapter internal constructor(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         holder.bind(
-            productName = products[position],
+            productName = Product.values()[position].emoji,
             price = getPrice(position),
-            quantity = quantityOrdered[position]
+            quantity = cart[position]
         )
         holder.addButton.setOnClickListener {
             adjustItemQuantity(it, holder.adapterPosition, true)
@@ -68,11 +64,11 @@ internal class StoreAdapter internal constructor(
     }
 
     override fun getItemId(position: Int): Long {
-        return products[position].hashCode().toLong()
+        return Product.values()[position].ordinal.toLong()
     }
 
     override fun getItemCount(): Int {
-        return products.size
+        return Product.values().size
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -84,11 +80,11 @@ internal class StoreAdapter internal constructor(
 
     internal fun launchPurchaseActivityWithCart() {
         val cart = StoreCart(currency)
-        for (i in quantityOrdered.indices) {
-            if (quantityOrdered[i] > 0) {
+        for (i in this.cart.indices) {
+            if (this.cart[i] > 0) {
                 cart.addStoreLineItem(
-                    products[i],
-                    quantityOrdered[i],
+                    Product.values()[i].emoji,
+                    this.cart[i],
                     getPrice(i).toLong()
                 )
             }
@@ -100,15 +96,15 @@ internal class StoreAdapter internal constructor(
     }
 
     internal fun clearItemSelections() {
-        quantityOrdered.forEachIndexed { index, _ ->
-            quantityOrdered[index] = 0
+        cart.forEachIndexed { index, _ ->
+            cart[index] = 0
         }
         notifyDataSetChanged()
         itemsChangedCallback(false)
     }
 
     private fun getPrice(position: Int): Int {
-        return (EMOJI_PRICES[position] * priceMultiplier).toInt()
+        return (Product.values()[position].price * priceMultiplier).toInt()
     }
 
     internal class ViewHolder(
@@ -146,15 +142,25 @@ internal class StoreAdapter internal constructor(
         }
     }
 
-    private companion object {
-        private val EMOJI_PRODUCTS = intArrayOf(
-            0x1F455, 0x1F456, 0x1F457, 0x1F458, 0x1F459, 0x1F45A, 0x1F45B,
-            0x1F45C, 0x1F45D, 0x1F45E, 0x1F45F, 0x1F460, 0x1F461, 0x1F462
-        )
-
-        private val EMOJI_PRICES = intArrayOf(
-            2000, 4000, 3000, 700, 600, 1000, 2000,
-            2500, 800, 3000, 2000, 5000, 5500, 6000
-        )
+    private enum class Product(
+        internal val emoji: String,
+        internal val price: Int
+    ) {
+        Shirt("👕", 2000),
+        Pants("👖", 4000),
+        Dress("👗", 3000),
+        MansShoe("👞", 700),
+        AthleticShoe("👟", 2000),
+        HighHeeledShoe("👠", 1000),
+        WomansSandal("👡", 2000),
+        WomansBoots("👢", 2500),
+        WomansHat("👒", 800),
+        Bikini("👙", 3000),
+        Lipstick("💄", 2000),
+        TopHat("🎩", 5000),
+        Purse("👛", 5500),
+        Handbag("👜", 6000),
+        Sunglasses("🕶", 2000),
+        WomansClothes("👚", 2500)
     }
 }

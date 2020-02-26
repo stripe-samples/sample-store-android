@@ -21,9 +21,8 @@ internal class ItemDivider(
         val start = parent.paddingStart
         val end = parent.width - parent.paddingEnd
 
-        val childCount = parent.childCount
-        for (i in 0 until childCount) {
-            val child = parent.getChildAt(i)
+        repeat(parent.childCount) {
+            val child = parent.getChildAt(it)
 
             val params = child.layoutParams as RecyclerView.LayoutParams
 
