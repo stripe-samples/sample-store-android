@@ -20,6 +20,8 @@ import com.stripe.android.SetupIntentResult
 import com.stripe.android.Stripe
 import com.stripe.android.StripeError
 import com.stripe.android.model.Address
+import com.stripe.android.model.ConfirmPaymentIntentParams
+import com.stripe.android.model.ConfirmSetupIntentParams
 import com.stripe.android.model.Customer
 import com.stripe.android.model.PaymentIntent
 import com.stripe.android.model.PaymentMethod
@@ -168,7 +170,10 @@ class PaymentActivity : AppCompatActivity() {
             object : ApiResultCallback<PaymentIntentResult> {
                 override fun onSuccess(result: PaymentIntentResult) {
                     stopLoading()
-                    processStripeIntent(result.intent)
+                    processStripeIntent(
+                        result.intent,
+                        isAfterConfirmation = true
+                    )
                 }
 
                 override fun onError(e: Exception) {
@@ -184,7 +189,10 @@ class PaymentActivity : AppCompatActivity() {
                 object : ApiResultCallback<SetupIntentResult> {
                     override fun onSuccess(result: SetupIntentResult) {
                         stopLoading()
-                        processStripeIntent(result.intent)
+                        processStripeIntent(
+                            result.intent,
+                            isAfterConfirmation = true
+                        )
                     }
 
                     override fun onError(e: Exception) {
@@ -377,7 +385,10 @@ class PaymentActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun processStripeIntent(stripeIntent: StripeIntent) {
+    private fun processStripeIntent(
+        stripeIntent: StripeIntent,
+        isAfterConfirmation: Boolean = false
+    ) {
         if (stripeIntent.requiresAction()) {
             stripe.handleNextActionForPayment(this, stripeIntent.clientSecret!!)
         } else if (stripeIntent.requiresConfirmation()) {
@@ -389,10 +400,30 @@ class PaymentActivity : AppCompatActivity() {
                 finishSetup()
             }
         } else if (stripeIntent.status == StripeIntent.Status.RequiresPaymentMethod) {
-            // reset payment method and shipping if authentication fails
-            initPaymentSession()
-            viewBinding.buttonAddPaymentMethod.text = getString(R.string.add_payment_method)
-            viewBinding.buttonAddShippingInfo.text = getString(R.string.add_shipping_details)
+            if (isAfterConfirmation) {
+                // reset payment method and shipping if authentication fails
+                initPaymentSession()
+                viewBinding.buttonAddPaymentMethod.text = getString(R.string.add_payment_method)
+                viewBinding.buttonAddShippingInfo.text = getString(R.string.add_shipping_details)
+            } else {
+                if (stripeIntent is PaymentIntent) {
+                    stripe.confirmPayment(
+                        this,
+                        ConfirmPaymentIntentParams.createWithPaymentMethodId(
+                            paymentMethodId = paymentSessionData?.paymentMethod?.id.orEmpty(),
+                            clientSecret = requireNotNull(stripeIntent.clientSecret)
+                        )
+                    )
+                } else if (stripeIntent is SetupIntent)  {
+                    stripe.confirmSetupIntent(
+                        this,
+                        ConfirmSetupIntentParams.create(
+                            paymentMethodId = paymentSessionData?.paymentMethod?.id.orEmpty(),
+                            clientSecret = requireNotNull(stripeIntent.clientSecret)
+                        )
+                    )
+                }
+            }
         } else {
             displayError(
                 "Unhandled Payment Intent Status: " + stripeIntent.status.toString()
@@ -439,7 +470,7 @@ class PaymentActivity : AppCompatActivity() {
                     .doOnSubscribe { startLoading() }
                     .doFinally { stopLoading() }
                     .subscribe(
-                        { processStripeIntent(it) },
+                        { processStripeIntent(it, isAfterConfirmation = false) },
                         { throwable -> displayError(throwable.localizedMessage) }
                     )
             )
