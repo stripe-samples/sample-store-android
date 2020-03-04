@@ -42,7 +42,9 @@ class Settings(context: Context) {
          * Three-letter ISO [currency code](https://stripe.com/docs/api/payment_intents/object#payment_intent_object-currency),
          * in lowercase. Must be a [supported currency](https://stripe.com/docs/currencies).
          */
-        const val CURRENCY = "usd"
+        const val CURRENCY = "USD"
+
+        const val COUNTRY = "us"
 
         /**
          * The list of [payment method types](https://stripe.com/docs/api/payment_intents/object#payment_intent_object-payment_method_types)
