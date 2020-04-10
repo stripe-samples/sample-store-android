@@ -110,7 +110,7 @@ dependencies {
     // Used to debug your Retrofit connections
     // Do not upgrade as it will require increasing minSdkVersion to 21
     //noinspection GradleDependency
-    implementation 'com.squareup.okhttp3:logging-interceptor:4.4.1'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.5.0'
 
     debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.2'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion"
