@@ -6,43 +6,19 @@ import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.jakewharton.rxbinding2.view.RxView
-import com.stripe.android.ApiResultCallback
-import com.stripe.android.CustomerSession
-import com.stripe.android.PayWithGoogleUtils
-import com.stripe.android.PaymentAuthConfig
-import com.stripe.android.PaymentConfiguration
-import com.stripe.android.PaymentIntentResult
-import com.stripe.android.PaymentSession
-import com.stripe.android.PaymentSessionConfig
-import com.stripe.android.PaymentSessionData
-import com.stripe.android.SetupIntentResult
-import com.stripe.android.Stripe
-import com.stripe.android.StripeError
-import com.stripe.android.model.Address
-import com.stripe.android.model.ConfirmPaymentIntentParams
-import com.stripe.android.model.ConfirmSetupIntentParams
-import com.stripe.android.model.Customer
-import com.stripe.android.model.PaymentIntent
-import com.stripe.android.model.PaymentMethod
-import com.stripe.android.model.SetupIntent
-import com.stripe.android.model.ShippingInformation
-import com.stripe.android.model.ShippingMethod
-import com.stripe.android.model.StripeIntent
+import com.stripe.android.*
+import com.stripe.android.model.*
 import com.stripe.android.view.BillingAddressFields
 import com.stripe.samplestore.databinding.CartItemBinding
 import com.stripe.samplestore.databinding.PaymentActivityBinding
 import com.stripe.samplestore.service.BackendApi
-import io.reactivex.Observable
+import io.reactivex.Completable
+import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
-import org.json.JSONException
 import org.json.JSONObject
-import java.io.IOException
-import java.util.Currency
-import java.util.HashMap
-import java.util.Locale
+import java.util.*
 
 class PaymentActivity : AppCompatActivity() {
 
@@ -134,24 +110,60 @@ class PaymentActivity : AppCompatActivity() {
         updateCartItems(totalPrice.toInt())
 
         updateConfirmPaymentButton(totalPrice)
-        compositeDisposable.add(RxView.clicks(viewBinding.buttonAddShippingInfo)
-            .subscribe { paymentSession.presentShippingFlow() })
-        compositeDisposable.add(RxView.clicks(viewBinding.buttonAddPaymentMethod)
-            .subscribe { paymentSession.presentPaymentMethodSelection() })
 
+        viewBinding.buttonAddShippingInfo.setOnClickListener {
+            paymentSession.presentShippingFlow()
+        }
+
+        viewBinding.buttonAddPaymentMethod.setOnClickListener {
+            paymentSession.presentPaymentMethodSelection()
+        }
+
+        viewBinding.buttonConfirmPayment.setOnClickListener {
+            retrieveCurrentCustomer()
+                .doOnSubscribe { startLoading() }
+                .flatMapCompletable { customer -> capturePayment(customer.id!!) }
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                    { stopLoading() },
+                    {
+                        stopLoading()
+                        when(it) {
+                            is CustomerRetrievalException -> {
+                                // TODO: we can handle specific exception here
+                            }
+                        }
+                        displayError(it.message)
+                    }
+                ).let { compositeDisposable.add(it) }
+        }
+
+        viewBinding.buttonConfirmSetup.setOnClickListener {
+            retrieveCurrentCustomer()
+                .doOnSubscribe { startLoading() }
+                .flatMapCompletable { customer -> createSetupIntent(customer.id!!) }
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                    { stopLoading() },
+                    {
+                        stopLoading()
+                        displayError(it.message)
+                    }
+                ).let { compositeDisposable.add(it) }
+        }
+    }
+
+    private fun retrieveCurrentCustomer(): Single<Customer> = Single.create { emitter ->
         val customerSession = CustomerSession.getInstance()
-        compositeDisposable.add(RxView.clicks(viewBinding.buttonConfirmPayment)
-            .subscribe {
-                customerSession.retrieveCurrentCustomer(
-                    PaymentIntentCustomerRetrievalListener(this@PaymentActivity)
-                )
-            })
-        compositeDisposable.addAll(RxView.clicks(viewBinding.buttonConfirmSetup)
-            .subscribe {
-                customerSession.retrieveCurrentCustomer(
-                    SetupIntentCustomerRetrievalListener(this@PaymentActivity)
-                )
-            })
+        customerSession.retrieveCurrentCustomer(object : CustomerSession.CustomerRetrievalListener {
+            override fun onCustomerRetrieved(customer: Customer) {
+                emitter.onSuccess(customer)
+            }
+
+            override fun onError(errorCode: Int, errorMessage: String, stripeError: StripeError?) {
+                emitter.onError(CustomerRetrievalException(errorCode, errorMessage, stripeError))
+            }
+        })
     }
 
     /*
@@ -169,11 +181,16 @@ class PaymentActivity : AppCompatActivity() {
             requestCode, data,
             object : ApiResultCallback<PaymentIntentResult> {
                 override fun onSuccess(result: PaymentIntentResult) {
-                    stopLoading()
-                    processStripeIntent(
+                    processStripeIntentCompletable(
                         result.intent,
                         isAfterConfirmation = true
-                    )
+                    ).subscribe(
+                        { stopLoading() },
+                        {
+                            stopLoading()
+                            displayError(it.message)
+                        }
+                    ).let { compositeDisposable.add(it) }
                 }
 
                 override fun onError(e: Exception) {
@@ -188,11 +205,16 @@ class PaymentActivity : AppCompatActivity() {
             val isSetupIntentResult = stripe.onSetupResult(requestCode, data,
                 object : ApiResultCallback<SetupIntentResult> {
                     override fun onSuccess(result: SetupIntentResult) {
-                        stopLoading()
-                        processStripeIntent(
+                        processStripeIntentCompletable(
                             result.intent,
                             isAfterConfirmation = true
-                        )
+                        ).subscribe(
+                            { stopLoading() },
+                            {
+                                stopLoading()
+                                displayError(it.message)
+                            }
+                        ).let {compositeDisposable.add(it)}
                     }
 
                     override fun onError(e: Exception) {
@@ -330,48 +352,51 @@ class PaymentActivity : AppCompatActivity() {
         return params
     }
 
-    private fun capturePayment(customerId: String) {
-        paymentSessionData?.let {
-            if (it.paymentMethod == null) {
-                displayError("No payment method selected")
-                return
+    private fun capturePayment(customerId: String): Completable =
+        checkPaymentSessionData()
+            .observeOn(Schedulers.io()) // network call
+            .flatMap { sessionData ->
+                service.createPaymentIntent(
+                    createCapturePaymentParams(
+                        sessionData,
+                        customerId,
+                        settings.stripeAccountId
+                    )
+                )
+            }
+            .flatMapCompletable { responseBody ->
+                onStripeIntentClientSecretResponseCompletable(responseBody.string())
             }
 
-            val stripeResponse = service.createPaymentIntent(
-                createCapturePaymentParams(it, customerId, settings.stripeAccountId)
-            )
-            compositeDisposable.add(stripeResponse
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .doOnSubscribe { startLoading() }
-                .doFinally { stopLoading() }
-                .subscribe(
-                    { responseBody -> onStripeIntentClientSecretResponse(responseBody.string()) },
-                    { throwable -> displayError(throwable.localizedMessage) }
-                ))
+    private fun checkPaymentSessionData(): Single<PaymentSessionData> =
+        if (paymentSessionData != null) {
+            Single.just(paymentSessionData)
+        } else {
+            Single.error(RuntimeException("PaymentSession is not initialized"))
         }
-    }
 
-    private fun createSetupIntent(customerId: String) {
-        paymentSessionData?.let {
-            if (it.paymentMethod == null) {
-                displayError("No payment method selected")
-                return
+    private fun createSetupIntent(customerId: String): Completable {
+        return checkPaymentSessionData()
+            .observeOn(Schedulers.io())
+            .flatMapCompletable { paymentSessionData ->
+                if (paymentSessionData.paymentMethod == null) {
+                    Completable.error(RuntimeException("No payment method selected"))
+                } else {
+
+                    val stripeResponse = service.createSetupIntent(
+                        createSetupIntentParams(
+                            paymentSessionData,
+                            customerId,
+                            settings.stripeAccountId
+                        )
+                    )
+                    stripeResponse.flatMapCompletable {
+                        onStripeIntentClientSecretResponseCompletable(
+                            it.toString()
+                        )
+                    }
+                }
             }
-
-            val stripeResponse = service.createSetupIntent(
-                createSetupIntentParams(it, customerId, settings.stripeAccountId)
-            )
-            compositeDisposable.add(stripeResponse
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .doOnSubscribe { startLoading() }
-                .doFinally { stopLoading() }
-                .subscribe(
-                    { responseBody -> onStripeIntentClientSecretResponse(responseBody.string()) },
-                    { throwable -> displayError(throwable.localizedMessage) }
-                ))
-        }
     }
 
     private fun displayError(errorMessage: String?) {
@@ -385,109 +410,112 @@ class PaymentActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun processStripeIntent(
+    private fun processStripeIntentCompletable(
         stripeIntent: StripeIntent,
         isAfterConfirmation: Boolean = false
-    ) {
-        if (stripeIntent.requiresAction()) {
-            stripe.handleNextActionForPayment(this, stripeIntent.clientSecret!!)
-        } else if (stripeIntent.requiresConfirmation()) {
-            confirmStripeIntent(stripeIntent.id!!, settings.stripeAccountId)
-        } else if (stripeIntent.status == StripeIntent.Status.Succeeded) {
-            if (stripeIntent is PaymentIntent) {
-                finishPayment()
-            } else if (stripeIntent is SetupIntent) {
-                finishSetup()
+    ): Completable {
+
+        return when {
+            stripeIntent.requiresAction() -> Completable.fromAction {
+                stripe.handleNextActionForPayment(this, stripeIntent.clientSecret!!)
             }
-        } else if (stripeIntent.status == StripeIntent.Status.RequiresPaymentMethod) {
-            if (isAfterConfirmation) {
-                // reset payment method and shipping if authentication fails
-                initPaymentSession()
-                viewBinding.buttonAddPaymentMethod.text = getString(R.string.add_payment_method)
-                viewBinding.buttonAddShippingInfo.text = getString(R.string.add_shipping_details)
-            } else {
-                if (stripeIntent is PaymentIntent) {
-                    stripe.confirmPayment(
-                        this,
-                        ConfirmPaymentIntentParams.createWithPaymentMethodId(
-                            paymentMethodId = paymentSessionData?.paymentMethod?.id.orEmpty(),
-                            clientSecret = requireNotNull(stripeIntent.clientSecret)
-                        )
-                    )
-                } else if (stripeIntent is SetupIntent)  {
-                    stripe.confirmSetupIntent(
-                        this,
-                        ConfirmSetupIntentParams.create(
-                            paymentMethodId = paymentSessionData?.paymentMethod?.id.orEmpty(),
-                            clientSecret = requireNotNull(stripeIntent.clientSecret)
-                        )
-                    )
+            stripeIntent.requiresConfirmation() ->
+                confirmStripeIntent(stripeIntent.id!!, settings.stripeAccountId)
+
+            stripeIntent.status == StripeIntent.Status.Succeeded -> {
+                when (stripeIntent) {
+                    is PaymentIntent -> finishPayment()
+
+                    is SetupIntent -> Completable.fromAction {
+                        finishSetup()
+                    }
+                    else -> Completable.error(RuntimeException("Fuck off"))
                 }
             }
-        } else {
-            displayError(
-                "Unhandled Payment Intent Status: " + stripeIntent.status.toString()
-            )
+            stripeIntent.status == StripeIntent.Status.RequiresPaymentMethod -> {
+                if (isAfterConfirmation) {
+                    Completable.fromAction {
+                        initPaymentSession()
+                        viewBinding.buttonAddPaymentMethod.text =
+                            getString(R.string.add_payment_method)
+                        viewBinding.buttonAddShippingInfo.text =
+                            getString(R.string.add_shipping_details)
+                    }
+                } else {
+                    when (stripeIntent) {
+                        is PaymentIntent -> Completable.fromAction {
+                            stripe.confirmPayment(
+                                this,
+                                ConfirmPaymentIntentParams.createWithPaymentMethodId(
+                                    paymentMethodId = paymentSessionData?.paymentMethod?.id.orEmpty(),
+                                    clientSecret = requireNotNull(stripeIntent.clientSecret)
+                                )
+                            )
+                        }
+
+                        is SetupIntent -> Completable.fromAction {
+                            stripe.confirmSetupIntent(
+                                this,
+                                ConfirmSetupIntentParams.create(
+                                    paymentMethodId = paymentSessionData?.paymentMethod?.id.orEmpty(),
+                                    clientSecret = requireNotNull(stripeIntent.clientSecret)
+                                )
+                            )
+                        }
+                        else -> Completable.error(RuntimeException("Unhandled stripeIntent: $stripeIntent"))
+                    }
+                }
+            }
+            else -> Completable.error(RuntimeException("Unhandled Payment Intent Status: ${stripeIntent.status}"))
         }
     }
 
-    private fun confirmStripeIntent(stripeIntentId: String, stripeAccountId: String?) {
+    private fun confirmStripeIntent(stripeIntentId: String, stripeAccountId: String?): Completable {
         val params = HashMap<String, Any>()
         params["payment_intent_id"] = stripeIntentId
         if (stripeAccountId != null) {
             params["stripe_account"] = stripeAccountId
         }
 
-        compositeDisposable.add(service.confirmPaymentIntent(params)
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnSubscribe { startLoading() }
-            .doFinally { stopLoading() }
-            .subscribe(
-                { onStripeIntentClientSecretResponse(it.string()) },
-                { throwable -> displayError(throwable.localizedMessage) }
-            ))
+        return service.confirmPaymentIntent(params)
+            .flatMapCompletable { onStripeIntentClientSecretResponseCompletable(it.toString()) }
     }
 
-    @Throws(IOException::class, JSONException::class)
-    private fun onStripeIntentClientSecretResponse(responseContents: String) {
+    private fun onStripeIntentClientSecretResponseCompletable(responseContents: String): Completable {
         val response = JSONObject(responseContents)
-
-        if (response.has("success")) {
+        return if (response.has("success")) {
             val success = response.getBoolean("success")
             if (success) {
                 finishPayment()
             } else {
-                displayError("Payment failed")
+                Completable.fromAction {
+                    displayError("Payment failed")
+                }
             }
         } else {
             val clientSecret = response.getString("secret")
-            compositeDisposable.add(
-                Observable
-                    .fromCallable { retrieveStripeIntent(clientSecret) }
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .doOnSubscribe { startLoading() }
-                    .doFinally { stopLoading() }
-                    .subscribe(
-                        { processStripeIntent(it, isAfterConfirmation = false) },
-                        { throwable -> displayError(throwable.localizedMessage) }
+
+            retrieveStripeIntent(clientSecret)
+                .flatMapCompletable {
+                    processStripeIntentCompletable(
+                        it,
+                        isAfterConfirmation = false
                     )
-            )
+                }
         }
     }
 
-    private fun retrieveStripeIntent(clientSecret: String): StripeIntent {
+    private fun retrieveStripeIntent(clientSecret: String): Single<StripeIntent> {
         return when {
             clientSecret.startsWith("pi_") ->
-                stripe.retrievePaymentIntentSynchronous(clientSecret)!!
+                Single.just(stripe.retrievePaymentIntentSynchronous(clientSecret)!!)
             clientSecret.startsWith("seti_") ->
-                stripe.retrieveSetupIntentSynchronous(clientSecret)!!
-            else -> throw IllegalArgumentException("Invalid client_secret: $clientSecret")
+                Single.just(stripe.retrieveSetupIntentSynchronous(clientSecret)!!)
+            else -> Single.error(IllegalArgumentException("Invalid client_secret: $clientSecret"))
         }
     }
 
-    private fun finishPayment() {
+    private fun finishPayment(): Completable = Completable.fromAction {
         paymentSession.onCompleted()
         val data = StoreActivity.createPurchaseCompleteIntent(
             storeCart.totalPrice + shippingCosts
@@ -524,8 +552,10 @@ class PaymentActivity : AppCompatActivity() {
         viewBinding.buttonAddPaymentMethod.isEnabled = true
         viewBinding.buttonAddShippingInfo.isEnabled = true
 
-        viewBinding.buttonConfirmPayment.isEnabled = java.lang.Boolean.TRUE == viewBinding.buttonConfirmPayment.tag
-        viewBinding.buttonConfirmSetup.isEnabled = java.lang.Boolean.TRUE == viewBinding.buttonConfirmSetup.tag
+        viewBinding.buttonConfirmPayment.isEnabled =
+            java.lang.Boolean.TRUE == viewBinding.buttonConfirmPayment.tag
+        viewBinding.buttonConfirmSetup.isEnabled =
+            java.lang.Boolean.TRUE == viewBinding.buttonConfirmSetup.tag
     }
 
     private fun getPaymentMethodDescription(paymentMethod: PaymentMethod): String {
@@ -588,32 +618,6 @@ class PaymentActivity : AppCompatActivity() {
 
         override fun onPaymentSessionDataChanged(data: PaymentSessionData) {
             listenerActivity?.onPaymentSessionDataChanged(data)
-        }
-    }
-
-    private class PaymentIntentCustomerRetrievalListener constructor(
-        activity: PaymentActivity
-    ) : CustomerSession.ActivityCustomerRetrievalListener<PaymentActivity>(activity) {
-
-        override fun onCustomerRetrieved(customer: Customer) {
-            customer.id?.let { activity?.capturePayment(it) }
-        }
-
-        override fun onError(errorCode: Int, errorMessage: String, stripeError: StripeError?) {
-            activity?.displayError("Error getting payment method:. $errorMessage")
-        }
-    }
-
-    private class SetupIntentCustomerRetrievalListener constructor(
-        activity: PaymentActivity
-    ) : CustomerSession.ActivityCustomerRetrievalListener<PaymentActivity>(activity) {
-
-        override fun onCustomerRetrieved(customer: Customer) {
-            customer.id?.let { activity?.createSetupIntent(it) }
-        }
-
-        override fun onError(errorCode: Int, errorMessage: String, stripeError: StripeError?) {
-            activity?.displayError("Error getting payment method:. $errorMessage")
         }
     }
 
