@@ -1,6 +1,6 @@
 package com.stripe.samplestore.service
 
-import io.reactivex.Observable
+import io.reactivex.Single
 import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.FieldMap
@@ -18,7 +18,7 @@ interface BackendApi {
      * {"secret": "pi_1Eu5SqCRMb_secret_O2Avhk5V0Pjeo"}
      */
     @POST("create_payment_intent")
-    fun createPaymentIntent(@Body params: HashMap<String, Any>): Observable<ResponseBody>
+    fun createPaymentIntent(@Body params: HashMap<String, Any>): Single<ResponseBody>
 
     /**
      * Used for Payment Intent Manual confirmation
@@ -30,12 +30,12 @@ interface BackendApi {
      * {"secret": "pi_1Eu5SqCRMb_secret_O2Avhk5V0Pjeo"}
      */
     @POST("confirm_payment_intent")
-    fun confirmPaymentIntent(@Body params: HashMap<String, Any>): Observable<ResponseBody>
+    fun confirmPaymentIntent(@Body params: HashMap<String, Any>): Single<ResponseBody>
 
     @POST("create_setup_intent")
-    fun createSetupIntent(@Body params: HashMap<String, Any>): Observable<ResponseBody>
+    fun createSetupIntent(@Body params: HashMap<String, Any>): Single<ResponseBody>
 
     @FormUrlEncoded
     @POST("ephemeral_keys")
-    fun createEphemeralKey(@FieldMap apiVersionMap: HashMap<String, String>): Observable<ResponseBody>
+    fun createEphemeralKey(@FieldMap apiVersionMap: HashMap<String, String>): Single<ResponseBody>
 }
