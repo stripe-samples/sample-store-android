@@ -41,7 +41,6 @@ import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
 import java.util.Currency
-import java.util.HashMap
 import java.util.Locale
 
 class PaymentActivity : AppCompatActivity() {
@@ -285,49 +284,43 @@ class PaymentActivity : AppCompatActivity() {
         data: PaymentSessionData,
         customerId: String,
         stripeAccountId: String?
-    ): HashMap<String, Any> {
-        val params = HashMap<String, Any>()
-        params["amount"] = data.cartTotal.toString()
-        params["payment_method_id"] = requireNotNull(data.paymentMethod?.id)
-        params["payment_method_types"] = Settings.ALLOWED_PAYMENT_METHOD_TYPES.map { it.code }
-        params["currency"] = Settings.CURRENCY
-        params["country"] = Settings.COUNTRY
-        params["customer_id"] = customerId
-        data.shippingInformation?.let {
-            params["shipping"] = it.toParamMap()
-        }
-        params["return_url"] = "stripe://payment-auth-return"
-        stripeAccountId?.let {
-            params["stripe_account"] = it
-        }
-
-        params["products"] = storeCart.lineItems.flatMap { lineItem ->
-            mutableListOf<String>().also { products ->
-                repeat(lineItem.quantity) {
-                    products.add(lineItem.description)
+    ): Map<String, Any> {
+        return mapOf(
+            "payment_method_id" to requireNotNull(data.paymentMethod?.id),
+            "country" to Settings.COUNTRY,
+            "customer_id" to customerId,
+            "products" to storeCart.lineItems.flatMap { lineItem ->
+                mutableListOf<String>().also { products ->
+                    repeat(lineItem.quantity) {
+                        products.add(lineItem.description)
+                    }
                 }
             }
-        }
-
-        return params
+        ).plus(
+            data.shippingInformation?.let {
+                mapOf("shipping" to it.toParamMap())
+            }.orEmpty()
+        ).plus(
+            stripeAccountId?.let {
+                mapOf("stripe_account" to it)
+            }.orEmpty()
+        )
     }
 
     private fun createSetupIntentParams(
         data: PaymentSessionData,
         customerId: String,
         stripeAccountId: String?
-    ): HashMap<String, Any> {
-        val params = HashMap<String, Any>()
-        params["payment_method_id"] = requireNotNull(data.paymentMethod?.id)
-        params["payment_method_types"] = Settings.ALLOWED_PAYMENT_METHOD_TYPES.map { it.code }
-        params["customer_id"] = customerId
-        params["return_url"] = "stripe://payment-auth-return"
-        params["currency"] = Settings.CURRENCY
-        params["country"] = Settings.COUNTRY
-        stripeAccountId?.let {
-            params["stripe_account"] = it
-        }
-        return params
+    ): Map<String, Any> {
+        return mapOf(
+            "payment_method_id" to requireNotNull(data.paymentMethod?.id),
+            "customer_id" to customerId,
+            "country" to Settings.COUNTRY
+        ).plus(
+            stripeAccountId?.let {
+                mapOf("stripe_account" to it)
+            }.orEmpty()
+        )
     }
 
     private fun capturePayment(customerId: String) {
@@ -339,6 +332,7 @@ class PaymentActivity : AppCompatActivity() {
 
             val stripeResponse = service.createPaymentIntent(
                 createCapturePaymentParams(it, customerId, settings.stripeAccountId)
+                    .toMutableMap()
             )
             compositeDisposable.add(stripeResponse
                 .subscribeOn(Schedulers.io())
@@ -361,6 +355,7 @@ class PaymentActivity : AppCompatActivity() {
 
             val stripeResponse = service.createSetupIntent(
                 createSetupIntentParams(it, customerId, settings.stripeAccountId)
+                    .toMutableMap()
             )
             compositeDisposable.add(stripeResponse
                 .subscribeOn(Schedulers.io())
@@ -432,21 +427,25 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun confirmStripeIntent(stripeIntentId: String, stripeAccountId: String?) {
-        val params = HashMap<String, Any>()
-        params["payment_intent_id"] = stripeIntentId
-        if (stripeAccountId != null) {
-            params["stripe_account"] = stripeAccountId
-        }
+        val params = mapOf(
+            "payment_intent_id" to stripeIntentId
+        ).plus(
+            stripeAccountId?.let {
+                mapOf("stripe_account" to it)
+            }.orEmpty()
+        )
 
-        compositeDisposable.add(service.confirmPaymentIntent(params)
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnSubscribe { startLoading() }
-            .doFinally { stopLoading() }
-            .subscribe(
-                { onStripeIntentClientSecretResponse(it.string()) },
-                { throwable -> displayError(throwable.localizedMessage) }
-            ))
+        compositeDisposable.add(
+            service.confirmPaymentIntent(params.toMutableMap())
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnSubscribe { startLoading() }
+                .doFinally { stopLoading() }
+                .subscribe(
+                    { onStripeIntentClientSecretResponse(it.string()) },
+                    { throwable -> displayError(throwable.localizedMessage) }
+                )
+        )
     }
 
     @Throws(IOException::class, JSONException::class)
@@ -533,19 +532,19 @@ class PaymentActivity : AppCompatActivity() {
             PaymentMethod.Type.Card -> {
                 paymentMethod.card?.let {
                     "${getDisplayName(it.brand)}-${it.last4}"
-                } ?: ""
+                }.orEmpty()
             }
             PaymentMethod.Type.Fpx -> {
                 paymentMethod.fpx?.let {
                     "${getDisplayName(it.bank)} (FPX)"
-                } ?: ""
+                }.orEmpty()
             }
             else -> ""
         }
     }
 
     private fun getDisplayName(name: String?): String {
-        return (name ?: "")
+        return (name.orEmpty())
             .split("_")
             .joinToString(separator = " ") { it.capitalize() }
     }
