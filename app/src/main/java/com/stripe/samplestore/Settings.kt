@@ -47,14 +47,6 @@ class Settings(context: Context) {
         const val COUNTRY = "us"
 
         /**
-         * The list of [payment method types](https://stripe.com/docs/api/payment_intents/object#payment_intent_object-payment_method_types)
-         * (e.g. card) that this PaymentIntent is allowed to use.
-         */
-        val ALLOWED_PAYMENT_METHOD_TYPES = listOf(
-            PaymentMethod.Type.Card
-        )
-
-        /**
          * Set to the base URL of your test backend. If you are using
          * [example-mobile-backend](https://github.com/stripe/example-mobile-backend),
          * the URL will be something like `https://hidden-beach-12345.herokuapp.com/`.
