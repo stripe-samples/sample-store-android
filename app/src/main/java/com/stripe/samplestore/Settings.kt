@@ -2,7 +2,6 @@ package com.stripe.samplestore
 
 import android.content.Context
 import android.content.pm.PackageManager
-import com.stripe.android.model.PaymentMethod
 
 /**
  * See [Configuring the example app](https://github.com/stripe/stripe-android#building-the-example-project)
