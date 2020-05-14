@@ -28,7 +28,7 @@ internal object StoreUtils {
         }
 
         val beforeDecimal = totalLength - fractionDigits
-        repeat (beforeDecimal) {
+        repeat(beforeDecimal) {
             builder.append('#')
         }
         // So we display "$0.55" instead of "$.55"
@@ -36,7 +36,7 @@ internal object StoreUtils {
             builder.append('0')
         }
         builder.append('.')
-        repeat (fractionDigits) {
+        repeat(fractionDigits) {
             builder.append('0')
         }
         val modBreak = 10.0.pow(fractionDigits.toDouble())

@@ -80,7 +80,7 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private val storeCart: StoreCart by lazy {
-        requireNotNull(intent?.extras?.getParcelable<StoreCart>(EXTRA_CART))
+        requireNotNull(intent?.extras?.getParcelable<StoreCart>(CheckoutContract.EXTRA_CART))
     }
 
     private var shippingCosts = 0L
@@ -265,7 +265,9 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun fillOutCartItemView(
-        item: StoreLineItem, viewBinding: CartItemBinding, currencySymbol: String
+        item: StoreLineItem,
+        viewBinding: CartItemBinding,
+        currencySymbol: String
     ) {
         viewBinding.label.text = item.description
 
@@ -409,7 +411,7 @@ class PaymentActivity : AppCompatActivity() {
                             clientSecret = requireNotNull(stripeIntent.clientSecret)
                         )
                     )
-                } else if (stripeIntent is SetupIntent)  {
+                } else if (stripeIntent is SetupIntent) {
                     stripe.confirmSetupIntent(
                         this,
                         ConfirmSetupIntentParams.create(
@@ -487,17 +489,24 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun finishPayment() {
-        paymentSession.onCompleted()
-        val data = StoreActivity.createPurchaseCompleteIntent(
-            storeCart.totalPrice + shippingCosts
+        finishWithResult(
+            CheckoutContract.Result.PaymentIntent(
+                storeCart.totalPrice + shippingCosts
+            )
         )
-        setResult(Activity.RESULT_OK, data)
-        finish()
     }
 
     private fun finishSetup() {
+        finishWithResult(CheckoutContract.Result.SetupIntent)
+    }
+
+    private fun finishWithResult(result: CheckoutContract.Result) {
         paymentSession.onCompleted()
-        setResult(Activity.RESULT_OK, Intent().putExtras(Bundle()))
+        setResult(
+            Activity.RESULT_OK,
+            Intent()
+                .putExtra(CheckoutContract.EXTRA_RESULT, result)
+        )
         finish()
     }
 
@@ -658,15 +667,6 @@ class PaymentActivity : AppCompatActivity() {
                 ),
                 courierMethod
             )
-        }
-    }
-
-    companion object {
-        private const val EXTRA_CART = "extra_cart"
-
-        fun createIntent(activity: Activity, cart: StoreCart): Intent {
-            return Intent(activity, PaymentActivity::class.java)
-                .putExtra(EXTRA_CART, cart)
         }
     }
 }

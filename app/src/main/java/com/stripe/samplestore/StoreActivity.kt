@@ -1,7 +1,5 @@
 package com.stripe.samplestore
 
-import android.app.Activity
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.annotation.StringRes
@@ -23,18 +21,33 @@ class StoreActivity : AppCompatActivity() {
         Settings(applicationContext)
     }
 
+    private val ephemeralKeyProvider: SampleStoreEphemeralKeyProvider by lazy {
+        SampleStoreEphemeralKeyProvider(applicationContext, settings.stripeAccountId)
+    }
+
+    private val checkoutResultLauncher = registerForActivityResult(
+        CheckoutContract()
+    ) { result ->
+        when (result) {
+            is CheckoutContract.Result.PaymentIntent -> {
+                displayPurchase(result.amount)
+            }
+            is CheckoutContract.Result.SetupIntent -> {
+                displaySetupComplete()
+            }
+        }
+
+        storeAdapter.clearItemSelections()
+    }
+
     private val storeAdapter: StoreAdapter by lazy {
-        StoreAdapter(this, priceMultiplier) { hasItems ->
+        StoreAdapter(this, priceMultiplier, checkoutResultLauncher) { hasItems ->
             if (hasItems) {
                 viewBinding.fab.show()
             } else {
                 viewBinding.fab.hide()
             }
         }
-    }
-
-    private val ephemeralKeyProvider: SampleStoreEphemeralKeyProvider by lazy {
-        SampleStoreEphemeralKeyProvider(applicationContext, settings.stripeAccountId)
     }
 
     private val priceMultiplier: Float
@@ -75,21 +88,6 @@ class StoreActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        val extras = data?.extras
-        if (requestCode == PURCHASE_REQUEST && resultCode == Activity.RESULT_OK && extras != null) {
-            val price = extras.getLong(EXTRA_PRICE_PAID, -1L)
-            if (price != -1L) {
-                displayPurchase(price)
-            } else {
-                displaySetupComplete()
-            }
-            storeAdapter.clearItemSelections()
-        }
-    }
-
     private fun displayPurchase(price: Long) {
         showSuccessDialog(
             R.string.purchase_successful,
@@ -115,16 +113,5 @@ class StoreActivity : AppCompatActivity() {
     private fun setupCustomerSession(stripeAccountId: String?) {
         // CustomerSession only needs to be initialized once per app.
         CustomerSession.initCustomerSession(this, ephemeralKeyProvider, stripeAccountId)
-    }
-
-    companion object {
-        internal const val PURCHASE_REQUEST = 37
-
-        private const val EXTRA_PRICE_PAID = "EXTRA_PRICE_PAID"
-
-        fun createPurchaseCompleteIntent(amount: Long): Intent {
-            return Intent()
-                .putExtra(EXTRA_PRICE_PAID, amount)
-        }
     }
 }

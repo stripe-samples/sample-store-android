@@ -3,6 +3,7 @@ package com.stripe.samplestore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.ActivityResultLauncher
 import androidx.recyclerview.widget.RecyclerView
 import com.stripe.samplestore.databinding.StoreItemBinding
 import java.util.Currency
@@ -10,6 +11,7 @@ import java.util.Currency
 internal class StoreAdapter internal constructor(
     private val activity: StoreActivity,
     private val priceMultiplier: Float,
+    private val checkoutResultContract: ActivityResultLauncher<StoreCart>,
     private val itemsChangedCallback: (Boolean) -> Unit = {}
 ) : RecyclerView.Adapter<StoreAdapter.ViewHolder>() {
 
@@ -93,9 +95,7 @@ internal class StoreAdapter internal constructor(
             }
         }
 
-        activity.startActivityForResult(
-            PaymentActivity.createIntent(activity, cart),
-            StoreActivity.PURCHASE_REQUEST)
+        checkoutResultContract.launch(cart)
     }
 
     internal fun clearItemSelections() {
