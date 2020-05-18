@@ -2,27 +2,25 @@ package com.stripe.samplestore
 
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.View
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.stripe.android.CustomerSession
-import com.stripe.android.PaymentConfiguration
 import com.stripe.samplestore.databinding.StoreActivityBinding
-import com.stripe.samplestore.service.SampleStoreEphemeralKeyProvider
 
 class StoreActivity : AppCompatActivity() {
+    private val viewModel: StoreViewModel by lazy {
+        ViewModelProvider(
+            this,
+            ViewModelProvider.AndroidViewModelFactory(application)
+        )[StoreViewModel::class.java]
+    }
 
     private val viewBinding: StoreActivityBinding by lazy {
         StoreActivityBinding.inflate(layoutInflater)
-    }
-
-    private val settings: Settings by lazy {
-        Settings(applicationContext)
-    }
-
-    private val ephemeralKeyProvider: SampleStoreEphemeralKeyProvider by lazy {
-        SampleStoreEphemeralKeyProvider(applicationContext, settings.stripeAccountId)
     }
 
     private val checkoutResultLauncher = registerForActivityResult(
@@ -66,7 +64,16 @@ class StoreActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(viewBinding.root)
 
-        PaymentConfiguration.init(this, settings.publishableKey)
+        viewBinding.fab.isEnabled = false
+        viewBinding.progressBar.visibility = View.VISIBLE
+        viewModel.retrieveCustomer().observe(this, Observer { result ->
+            viewBinding.progressBar.visibility = View.INVISIBLE
+            viewBinding.fab.isEnabled = result.isSuccess
+
+            result.onSuccess {
+                storeAdapter.customer = it
+            }
+        })
 
         viewBinding.fab.hide()
         setSupportActionBar(findViewById(R.id.my_toolbar))
@@ -80,12 +87,6 @@ class StoreActivity : AppCompatActivity() {
         viewBinding.fab.setOnClickListener {
             storeAdapter.launchPurchaseActivityWithCart()
         }
-        setupCustomerSession(settings.stripeAccountId)
-    }
-
-    override fun onDestroy() {
-        ephemeralKeyProvider.destroy()
-        super.onDestroy()
     }
 
     private fun displayPurchase(price: Long) {
@@ -108,10 +109,5 @@ class StoreActivity : AppCompatActivity() {
             .setPositiveButton(android.R.string.ok) { dialog, _ -> dialog.dismiss() }
             .create()
             .show()
-    }
-
-    private fun setupCustomerSession(stripeAccountId: String?) {
-        // CustomerSession only needs to be initialized once per app.
-        CustomerSession.initCustomerSession(this, ephemeralKeyProvider, stripeAccountId)
     }
 }

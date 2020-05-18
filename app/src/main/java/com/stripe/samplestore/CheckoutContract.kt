@@ -6,15 +6,21 @@ import android.os.Parcelable
 import androidx.activity.result.contract.ActivityResultContract
 import kotlinx.android.parcel.Parcelize
 
-internal class CheckoutContract : ActivityResultContract<StoreCart, CheckoutContract.Result>() {
-    override fun createIntent(context: Context, cart: StoreCart?): Intent {
+internal class CheckoutContract : ActivityResultContract<CheckoutContract.Args, CheckoutContract.Result>() {
+    override fun createIntent(context: Context, args: Args?): Intent {
         return Intent(context, PaymentActivity::class.java)
-            .putExtra(EXTRA_CART, cart)
+            .putExtra(EXTRA_ARGS, args)
     }
 
     override fun parseResult(resultCode: Int, intent: Intent?): Result? {
         return intent?.getParcelableExtra(EXTRA_RESULT)
     }
+
+    @Parcelize
+    data class Args(
+        val cart: StoreCart,
+        val customerId: String
+    ) : Parcelable
 
     sealed class Result : Parcelable {
         @Parcelize
@@ -25,7 +31,7 @@ internal class CheckoutContract : ActivityResultContract<StoreCart, CheckoutCont
     }
 
     companion object {
-        const val EXTRA_CART = "extra_cart"
+        const val EXTRA_ARGS = "extra_args"
         const val EXTRA_RESULT = "result_extra"
     }
 }
