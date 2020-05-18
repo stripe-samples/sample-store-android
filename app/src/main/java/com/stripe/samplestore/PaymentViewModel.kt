@@ -6,6 +6,8 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.stripe.android.ApiResultCallback
 import com.stripe.android.model.PaymentIntent
+import com.stripe.android.model.PaymentMethod
+import com.stripe.android.model.PaymentMethodCreateParams
 import com.stripe.android.model.SetupIntent
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
@@ -112,8 +114,20 @@ internal class PaymentViewModel(application: Application) : AndroidViewModel(app
         return liveData
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        compositeDisposable.dispose()
+    fun createPaymentMethod(params: PaymentMethodCreateParams): LiveData<Result<PaymentMethod>> {
+        val liveData = MutableLiveData<Result<PaymentMethod>>()
+        stripe.createPaymentMethod(
+            params,
+            callback = object : ApiResultCallback<PaymentMethod> {
+                override fun onSuccess(result: PaymentMethod) {
+                    liveData.value = Result.success(result)
+                }
+
+                override fun onError(e: Exception) {
+                    liveData.value = Result.failure(e)
+                }
+            }
+        )
+        return liveData
     }
 }

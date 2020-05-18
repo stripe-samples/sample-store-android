@@ -16,6 +16,9 @@ internal class StoreAdapter internal constructor(
     private val itemsChangedCallback: (Boolean) -> Unit = {}
 ) : RecyclerView.Adapter<StoreAdapter.ViewHolder>() {
 
+    internal var customer: Customer? = null
+    internal var isGooglePayReady: Boolean = false
+
     private val currency: Currency = Currency.getInstance(Settings.CURRENCY)
 
     private var totalOrdered: Int = 0
@@ -24,8 +27,6 @@ internal class StoreAdapter internal constructor(
     // otherwise functional if you switched that assumption on the backend and passed
     // currency code as a parameter.
     private val cart: IntArray = IntArray(Product.values().size)
-
-    internal var customer: Customer? = null
 
     init {
         setHasStableIds(true)
@@ -100,8 +101,9 @@ internal class StoreAdapter internal constructor(
 
         checkoutResultContract.launch(
             CheckoutContract.Args(
-                cart,
-                customerId = requireNotNull(customer?.id)
+                cart = cart,
+                customerId = requireNotNull(customer?.id),
+                isGooglePayReady = isGooglePayReady
             )
         )
     }

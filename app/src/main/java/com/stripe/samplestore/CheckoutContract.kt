@@ -19,7 +19,8 @@ internal class CheckoutContract : ActivityResultContract<CheckoutContract.Args, 
     @Parcelize
     data class Args(
         val cart: StoreCart,
-        val customerId: String
+        val customerId: String,
+        val isGooglePayReady: Boolean
     ) : Parcelable
 
     sealed class Result : Parcelable {

@@ -16,6 +16,10 @@
         tools:ignore="AllowBackup">
 
         <meta-data
+            android:name="com.google.android.gms.wallet.api.enabled"
+            android:value="true" />
+
+        <meta-data
             android:name="com.stripe.samplestore.price_multiplier"
             android:value="${PRICE_MULTIPLIER}" />
 
