@@ -5,13 +5,14 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.ActivityResultLauncher
 import androidx.recyclerview.widget.RecyclerView
+import com.stripe.android.model.Customer
 import com.stripe.samplestore.databinding.StoreItemBinding
 import java.util.Currency
 
 internal class StoreAdapter internal constructor(
     private val activity: StoreActivity,
     private val priceMultiplier: Float,
-    private val checkoutResultContract: ActivityResultLauncher<StoreCart>,
+    private val checkoutResultContract: ActivityResultLauncher<CheckoutContract.Args>,
     private val itemsChangedCallback: (Boolean) -> Unit = {}
 ) : RecyclerView.Adapter<StoreAdapter.ViewHolder>() {
 
@@ -23,6 +24,8 @@ internal class StoreAdapter internal constructor(
     // otherwise functional if you switched that assumption on the backend and passed
     // currency code as a parameter.
     private val cart: IntArray = IntArray(Product.values().size)
+
+    internal var customer: Customer? = null
 
     init {
         setHasStableIds(true)
@@ -95,7 +98,12 @@ internal class StoreAdapter internal constructor(
             }
         }
 
-        checkoutResultContract.launch(cart)
+        checkoutResultContract.launch(
+            CheckoutContract.Args(
+                cart,
+                customerId = requireNotNull(customer?.id)
+            )
+        )
     }
 
     internal fun clearItemSelections() {

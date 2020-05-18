@@ -24,6 +24,14 @@
             app:popupTheme="@style/WhiteTextTheme"
             tools:ignore="UnusedAttribute" />
 
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:indeterminate="true"
+            android:visibility="invisible"
+            style="@style/Widget.AppCompat.ProgressBar.Horizontal"/>
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/store_items"
             android:layout_width="match_parent"
