@@ -7,8 +7,15 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import com.google.android.gms.wallet.AutoResolveHelper
+import com.google.android.gms.wallet.PaymentData
+import com.google.android.gms.wallet.PaymentDataRequest
+import com.google.android.gms.wallet.PaymentsClient
+import com.google.android.gms.wallet.Wallet
+import com.google.android.gms.wallet.WalletConstants
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.stripe.android.ApiResultCallback
+import com.stripe.android.GooglePayJsonFactory
 import com.stripe.android.PayWithGoogleUtils
 import com.stripe.android.PaymentAuthConfig
 import com.stripe.android.PaymentIntentResult
@@ -22,6 +29,7 @@ import com.stripe.android.model.ConfirmPaymentIntentParams
 import com.stripe.android.model.ConfirmSetupIntentParams
 import com.stripe.android.model.PaymentIntent
 import com.stripe.android.model.PaymentMethod
+import com.stripe.android.model.PaymentMethodCreateParams
 import com.stripe.android.model.SetupIntent
 import com.stripe.android.model.ShippingInformation
 import com.stripe.android.model.ShippingMethod
@@ -57,36 +65,33 @@ class PaymentActivity : AppCompatActivity() {
         PaymentSession(
             this,
             PaymentSessionConfig.Builder()
-                .setPrepopulatedShippingInfo(exampleShippingInfo)
+                .setPrepopulatedShippingInfo(DEFAULT_SHIPPING_INFO)
                 .setShippingInformationValidator(ShippingInfoValidator())
                 .setShippingMethodsFactory(ShippingMethodsFactory())
                 .setBillingAddressFields(BillingAddressFields.PostalCode)
-                .setShouldShowGooglePay(true)
+                .setShouldShowGooglePay(args.isGooglePayReady)
                 .build()
         )
     }
     private val args: CheckoutContract.Args by lazy {
         requireNotNull(intent?.extras?.getParcelable<CheckoutContract.Args>(CheckoutContract.EXTRA_ARGS))
     }
+
     private val storeCart: StoreCart by lazy { args.cart }
 
+    private val paymentsClient: PaymentsClient by lazy {
+        Wallet.getPaymentsClient(this,
+            Wallet.WalletOptions.Builder()
+                .setEnvironment(WalletConstants.ENVIRONMENT_TEST)
+                .build())
+    }
+    private val googlePayJsonFactory: GooglePayJsonFactory by lazy {
+        GooglePayJsonFactory(this)
+    }
     private var shippingCosts = 0L
 
     private val totalPrice: Long
         get() = storeCart.totalPrice + shippingCosts
-
-    private val exampleShippingInfo: ShippingInformation
-        get() {
-            val address = Address.Builder()
-                .setCity("San Francisco")
-                .setCountry("US")
-                .setLine1("123 Market St")
-                .setLine2("#345")
-                .setPostalCode("94107")
-                .setState("CA")
-                .build()
-            return ShippingInformation(address, "Fake Name", "(555) 555-5555")
-        }
 
     private var paymentSessionData: PaymentSessionData? = null
 
@@ -129,10 +134,14 @@ class PaymentActivity : AppCompatActivity() {
         }
 
         viewBinding.buttonConfirmPayment.setOnClickListener {
-            createPaymentIntent()
+            paymentSessionData?.let {
+                createPaymentIntent(it)
+            }
         }
         viewBinding.buttonConfirmSetup.setOnClickListener {
-            createSetupIntent()
+            paymentSessionData?.let {
+                createSetupIntent(it)
+            }
         }
     }
 
@@ -146,7 +155,8 @@ class PaymentActivity : AppCompatActivity() {
                     stopLoading()
                     processStripeIntent(
                         result.intent,
-                        isAfterConfirmation = true
+                        isAfterConfirmation = true,
+                        paymentMethod = null
                     )
                 }
 
@@ -165,7 +175,8 @@ class PaymentActivity : AppCompatActivity() {
                         stopLoading()
                         processStripeIntent(
                             result.intent,
-                            isAfterConfirmation = true
+                            isAfterConfirmation = true,
+                            paymentMethod = null
                         )
                     }
 
@@ -174,10 +185,45 @@ class PaymentActivity : AppCompatActivity() {
                         displayError(e.message)
                     }
                 })
-            if (!isSetupIntentResult) {
-                paymentSession.handlePaymentData(requestCode, resultCode, data!!)
+            if (!isSetupIntentResult && data != null) {
+                paymentSession.handlePaymentData(requestCode, resultCode, data)
             }
         }
+
+        if (requestCode == LOAD_PAYMENT_DATA_REQUEST_CODE) {
+            when (resultCode) {
+                Activity.RESULT_OK -> {
+                    if (data != null) {
+                        handleGooglePayResult(data)
+                    }
+                }
+                else -> {
+                    resetCheckout()
+                }
+            }
+        }
+    }
+
+    private fun handleGooglePayResult(data: Intent) {
+        val paymentData = PaymentData.getFromIntent(data) ?: return
+        val paymentDataJson = JSONObject(paymentData.toJson())
+
+        val paymentMethodCreateParams =
+            PaymentMethodCreateParams.createFromGooglePay(paymentDataJson)
+
+        startLoading()
+        viewModel.createPaymentMethod(paymentMethodCreateParams)
+            .observe(this, Observer { result ->
+                result.fold(
+                    onSuccess = {
+                        payWithPaymentMethod(it)
+                    },
+                    onFailure = {
+                        displayError(it)
+                        resetCheckout()
+                    }
+                )
+            })
     }
 
     private fun updateConfirmPaymentButton(cartTotal: Long) {
@@ -257,8 +303,8 @@ class PaymentActivity : AppCompatActivity() {
         viewBinding.totalPrice.text = getDisplayPrice(currencySymbol, item.totalPrice.toInt())
     }
 
-    private fun createCapturePaymentParams(
-        data: PaymentSessionData,
+    private fun createCreatePaymentIntentParams(
+        shippingInformation: ShippingInformation?,
         stripeAccountId: String?
     ): Map<String, Any> {
         return mapOf(
@@ -272,7 +318,7 @@ class PaymentActivity : AppCompatActivity() {
                 }
             }
         ).plus(
-            data.shippingInformation?.let {
+            shippingInformation?.let {
                 mapOf("shipping" to it.toParamMap())
             }.orEmpty()
         ).plus(
@@ -295,45 +341,57 @@ class PaymentActivity : AppCompatActivity() {
         )
     }
 
-    private fun createPaymentIntent() {
-        paymentSessionData?.let {
-            if (it.paymentMethod == null) {
-                displayError("No payment method selected")
-                return
+    private fun createPaymentIntent(paymentSessionData: PaymentSessionData) {
+        when {
+            paymentSessionData.useGooglePay -> payWithGoogle()
+            else -> {
+                paymentSessionData.paymentMethod?.let { paymentMethod ->
+                    payWithPaymentMethod(paymentMethod)
+                } ?: displayError("No payment method selected")
             }
-
-            startLoading()
-            viewModel.createPaymentIntent(
-                createCapturePaymentParams(it, settings.stripeAccountId)
-            ).observe(this, Observer { result ->
-                stopLoading()
-                result.fold(
-                    onSuccess = ::onStripeIntentClientSecretResponse,
-                    onFailure = ::displayError
-                )
-            })
         }
     }
 
-    private fun createSetupIntent() {
-        paymentSessionData?.let {
-            if (it.paymentMethod == null) {
-                displayError("No payment method selected")
-                return
-            }
-
-            startLoading()
-            viewModel.createSetupIntent(
-                createSetupIntentParams(settings.stripeAccountId)
-            ).observe(this, Observer { result ->
-                stopLoading()
-
-                result.fold(
-                    onSuccess = ::onStripeIntentClientSecretResponse,
-                    onFailure = ::displayError
-                )
-            })
+    private fun createSetupIntent(paymentSessionData: PaymentSessionData) {
+        val paymentMethod = paymentSessionData.paymentMethod
+        if (paymentMethod == null) {
+            displayError("No payment method selected")
+            return
         }
+
+        startLoading()
+        viewModel.createSetupIntent(
+            createSetupIntentParams(settings.stripeAccountId)
+        ).observe(this, Observer { result ->
+            stopLoading()
+
+            result.fold(
+                onSuccess = { response ->
+                    onStripeIntentClientSecretResponse(
+                        response,
+                        paymentMethod
+                    )
+                },
+                onFailure = ::displayError
+            )
+        })
+    }
+
+    private fun payWithPaymentMethod(paymentMethod: PaymentMethod) {
+        startLoading()
+        viewModel.createPaymentIntent(
+            createCreatePaymentIntentParams(
+                paymentSessionData?.shippingInformation,
+                settings.stripeAccountId
+            )
+        ).observe(this, Observer { result ->
+            result.fold(
+                onSuccess = { response ->
+                    onStripeIntentClientSecretResponse(response, paymentMethod)
+                },
+                onFailure = ::displayError
+            )
+        })
     }
 
     private fun displayError(throwable: Throwable) = displayError(throwable.message)
@@ -349,14 +407,34 @@ class PaymentActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun resetCheckout() {
+        paymentSessionData = null
+
+        viewBinding.progressBar.visibility = View.INVISIBLE
+
+        viewBinding.buttonConfirmPayment.tag = false
+        viewBinding.buttonConfirmPayment.isEnabled = false
+        viewBinding.buttonConfirmSetup.tag = false
+        viewBinding.buttonConfirmSetup.isEnabled = false
+
+        // reset payment method and shipping if authentication fails
+        initPaymentSession()
+        viewBinding.buttonAddPaymentMethod.text = getString(R.string.add_payment_method)
+        viewBinding.buttonAddShippingInfo.text = getString(R.string.add_shipping_details)
+    }
+
     private fun processStripeIntent(
         stripeIntent: StripeIntent,
-        isAfterConfirmation: Boolean = false
+        isAfterConfirmation: Boolean = false,
+        paymentMethod: PaymentMethod?
     ) {
         if (stripeIntent.requiresAction()) {
             stripe.handleNextActionForPayment(this, stripeIntent.clientSecret!!)
         } else if (stripeIntent.requiresConfirmation()) {
-            confirmStripeIntent(stripeIntent.id!!, settings.stripeAccountId)
+            confirmStripeIntent(
+                stripeIntent.id!!,
+                paymentMethod
+            )
         } else if (stripeIntent.status == StripeIntent.Status.Succeeded) {
             if (stripeIntent is PaymentIntent) {
                 finishPayment()
@@ -365,16 +443,13 @@ class PaymentActivity : AppCompatActivity() {
             }
         } else if (stripeIntent.status == StripeIntent.Status.RequiresPaymentMethod) {
             if (isAfterConfirmation) {
-                // reset payment method and shipping if authentication fails
-                initPaymentSession()
-                viewBinding.buttonAddPaymentMethod.text = getString(R.string.add_payment_method)
-                viewBinding.buttonAddShippingInfo.text = getString(R.string.add_shipping_details)
+                resetCheckout()
             } else {
                 if (stripeIntent is PaymentIntent) {
                     stripe.confirmPayment(
                         this,
                         ConfirmPaymentIntentParams.createWithPaymentMethodId(
-                            paymentMethodId = paymentSessionData?.paymentMethod?.id.orEmpty(),
+                            paymentMethodId = paymentMethod?.id.orEmpty(),
                             clientSecret = requireNotNull(stripeIntent.clientSecret)
                         )
                     )
@@ -382,7 +457,7 @@ class PaymentActivity : AppCompatActivity() {
                     stripe.confirmSetupIntent(
                         this,
                         ConfirmSetupIntentParams.create(
-                            paymentMethodId = paymentSessionData?.paymentMethod?.id.orEmpty(),
+                            paymentMethodId = paymentMethod?.id.orEmpty(),
                             clientSecret = requireNotNull(stripeIntent.clientSecret)
                         )
                     )
@@ -395,11 +470,14 @@ class PaymentActivity : AppCompatActivity() {
         }
     }
 
-    private fun confirmStripeIntent(stripeIntentId: String, stripeAccountId: String?) {
+    private fun confirmStripeIntent(
+        stripeIntentId: String,
+        paymentMethod: PaymentMethod?
+    ) {
         val params = mapOf(
             "payment_intent_id" to stripeIntentId
         ).plus(
-            stripeAccountId?.let {
+            settings.stripeAccountId?.let {
                 mapOf("stripe_account" to it)
             }.orEmpty()
         )
@@ -410,13 +488,21 @@ class PaymentActivity : AppCompatActivity() {
         ).observe(this, Observer { result ->
             stopLoading()
             result.fold(
-                onSuccess = ::onStripeIntentClientSecretResponse,
+                onSuccess = {
+                    onStripeIntentClientSecretResponse(
+                        it,
+                        paymentMethod
+                    )
+                },
                 onFailure = ::displayError
             )
         })
     }
 
-    private fun onStripeIntentClientSecretResponse(response: JSONObject) {
+    private fun onStripeIntentClientSecretResponse(
+        response: JSONObject,
+        paymentMethod: PaymentMethod?
+    ) {
         if (response.has("success")) {
             val success = response.getBoolean("success")
             if (success) {
@@ -427,35 +513,51 @@ class PaymentActivity : AppCompatActivity() {
         } else {
             val clientSecret = response.getString("secret")
             when {
-                clientSecret.startsWith("pi_") -> retrievePaymentIntent(clientSecret)
-                clientSecret.startsWith("seti_") -> retrieveSetupIntent(clientSecret)
+                clientSecret.startsWith("pi_") ->
+                    retrievePaymentIntent(clientSecret, paymentMethod)
+                clientSecret.startsWith("seti_") ->
+                    retrieveSetupIntent(clientSecret, paymentMethod)
                 else -> throw IllegalArgumentException("Invalid client_secret: $clientSecret")
             }
         }
     }
 
-    private fun retrievePaymentIntent(clientSecret: String) {
+    private fun retrievePaymentIntent(
+        clientSecret: String,
+        paymentMethod: PaymentMethod?
+    ) {
         startLoading()
         viewModel.retrievePaymentIntent(clientSecret)
             .observe(this, Observer { result ->
                 stopLoading()
                 result.fold(
                     onSuccess = {
-                        processStripeIntent(it, isAfterConfirmation = false)
+                        processStripeIntent(
+                            it,
+                            isAfterConfirmation = false,
+                            paymentMethod = paymentMethod
+                        )
                     },
                     onFailure = ::displayError
                 )
             })
     }
 
-    private fun retrieveSetupIntent(clientSecret: String) {
+    private fun retrieveSetupIntent(
+        clientSecret: String,
+        paymentMethod: PaymentMethod?
+    ) {
         startLoading()
         viewModel.retrieveSetupIntent(clientSecret)
             .observe(this, Observer { result ->
                 stopLoading()
                 result.fold(
                     onSuccess = {
-                        processStripeIntent(it, isAfterConfirmation = false)
+                        processStripeIntent(
+                            it,
+                            isAfterConfirmation = false,
+                            paymentMethod = paymentMethod
+                        )
                     },
                     onFailure = ::displayError
                 )
@@ -535,6 +637,9 @@ class PaymentActivity : AppCompatActivity() {
     private fun onPaymentSessionDataChanged(data: PaymentSessionData) {
         paymentSessionData = data
 
+        viewBinding.buttonConfirmPayment.isEnabled = data.isPaymentReadyToCharge
+        viewBinding.buttonConfirmSetup.isEnabled = data.isPaymentReadyToCharge
+
         data.shippingMethod?.let { shippingMethod ->
             viewBinding.buttonAddShippingInfo.text = shippingMethod.label
             shippingCosts = shippingMethod.amount
@@ -544,18 +649,58 @@ class PaymentActivity : AppCompatActivity() {
         updateCartItems(totalPrice.toInt(), shippingCosts.toInt())
         updateConfirmPaymentButton(totalPrice)
 
-        data.paymentMethod?.let { paymentMethod ->
-            viewBinding.buttonAddPaymentMethod.text = getPaymentMethodDescription(paymentMethod)
+        when {
+            data.useGooglePay -> {
+                updateForGooglePay()
+            }
+            else -> {
+                data.paymentMethod?.let { paymentMethod ->
+                    viewBinding.buttonAddPaymentMethod.text =
+                        getPaymentMethodDescription(paymentMethod)
+                }
+            }
         }
+    }
 
-        if (data.isPaymentReadyToCharge) {
-            viewBinding.buttonConfirmPayment.isEnabled = true
-            viewBinding.buttonConfirmSetup.isEnabled = true
-        }
+    private fun updateForGooglePay() {
+        viewBinding.buttonAddPaymentMethod.text = getString(R.string.google_pay)
     }
 
     private fun getDisplayPrice(currencySymbol: String, price: Int): String {
         return currencySymbol + PayWithGoogleUtils.getPriceString(price, storeCart.currency)
+    }
+
+    /**
+     * Launch the Google Pay sheet
+     */
+    private fun payWithGoogle() {
+        startLoading()
+        AutoResolveHelper.resolveTask(
+            paymentsClient.loadPaymentData(
+                PaymentDataRequest.fromJson(
+                    googlePayJsonFactory.createPaymentDataRequest(
+                        transactionInfo = GooglePayJsonFactory.TransactionInfo(
+                            currencyCode = "USD",
+                            totalPrice = storeCart.totalPrice.toInt(),
+                            totalPriceStatus = GooglePayJsonFactory.TransactionInfo.TotalPriceStatus.Final
+                        ),
+                        merchantInfo = GooglePayJsonFactory.MerchantInfo(
+                            merchantName = getString(R.string.app_name)
+                        ),
+                        shippingAddressParameters = GooglePayJsonFactory.ShippingAddressParameters(
+                            isRequired = true,
+                            allowedCountryCodes = setOf("US"),
+                            phoneNumberRequired = true
+                        ),
+                        billingAddressParameters = GooglePayJsonFactory.BillingAddressParameters(
+                            isRequired = true
+                        )
+                    ).toString()
+                )
+            ),
+            this@PaymentActivity,
+            LOAD_PAYMENT_DATA_REQUEST_CODE
+        )
     }
 
     private class PaymentSessionListenerImpl constructor(
@@ -616,5 +761,22 @@ class PaymentActivity : AppCompatActivity() {
                 courierMethod
             )
         }
+    }
+
+    private companion object {
+        private const val LOAD_PAYMENT_DATA_REQUEST_CODE = 5000
+
+        private val DEFAULT_SHIPPING_INFO = ShippingInformation(
+            Address.Builder()
+                .setCity("San Francisco")
+                .setCountry("US")
+                .setLine1("123 Market St")
+                .setLine2("#345")
+                .setPostalCode("94107")
+                .setState("CA")
+                .build(),
+            "Fake Name",
+            "(555) 555-5555"
+        )
     }
 }

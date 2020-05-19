@@ -67,7 +67,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:layout_marginTop="@dimen/payment_screen_spacing" />
+                android:layout_marginTop="@dimen/payment_screen_spacing"
+                android:enabled="false" />
 
             <Button
                 android:id="@+id/button_confirm_setup"
@@ -75,7 +76,8 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:layout_marginTop="@dimen/payment_screen_spacing"
-                android:text="@string/setup_payment_credentials" />
+                android:text="@string/setup_payment_credentials"
+                android:enabled="false" />
 
         </LinearLayout>
 

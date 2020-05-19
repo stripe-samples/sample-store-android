@@ -8,7 +8,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.gms.wallet.IsReadyToPayRequest
+import com.google.android.gms.wallet.PaymentsClient
+import com.google.android.gms.wallet.Wallet
+import com.google.android.gms.wallet.WalletConstants
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.stripe.android.GooglePayJsonFactory
 import com.stripe.samplestore.databinding.StoreActivityBinding
 
 class StoreActivity : AppCompatActivity() {
@@ -21,6 +26,16 @@ class StoreActivity : AppCompatActivity() {
 
     private val viewBinding: StoreActivityBinding by lazy {
         StoreActivityBinding.inflate(layoutInflater)
+    }
+
+    private val paymentsClient: PaymentsClient by lazy {
+        Wallet.getPaymentsClient(this,
+            Wallet.WalletOptions.Builder()
+                .setEnvironment(WalletConstants.ENVIRONMENT_TEST)
+                .build())
+    }
+    private val googlePayJsonFactory: GooglePayJsonFactory by lazy {
+        GooglePayJsonFactory(this)
     }
 
     private val checkoutResultLauncher = registerForActivityResult(
@@ -75,6 +90,8 @@ class StoreActivity : AppCompatActivity() {
             }
         })
 
+        isGooglePayReady()
+
         viewBinding.fab.hide()
         setSupportActionBar(findViewById(R.id.my_toolbar))
 
@@ -109,5 +126,21 @@ class StoreActivity : AppCompatActivity() {
             .setPositiveButton(android.R.string.ok) { dialog, _ -> dialog.dismiss() }
             .create()
             .show()
+    }
+
+    /**
+     * Check that Google Pay is available and ready
+     */
+    private fun isGooglePayReady() {
+        val request = IsReadyToPayRequest.fromJson(
+            googlePayJsonFactory.createIsReadyToPayRequest().toString()
+        )
+
+        paymentsClient.isReadyToPay(request)
+            .addOnCompleteListener { task ->
+                storeAdapter.isGooglePayReady = runCatching {
+                    task.isSuccessful
+                }.getOrDefault(false)
+            }
     }
 }
