@@ -20,10 +20,6 @@
             android:value="true" />
 
         <meta-data
-            android:name="com.stripe.samplestore.price_multiplier"
-            android:value="${PRICE_MULTIPLIER}" />
-
-        <meta-data
             android:name="com.stripe.example.metadata.backend_url"
             android:value="${BACKEND_URL}" />
         <meta-data
