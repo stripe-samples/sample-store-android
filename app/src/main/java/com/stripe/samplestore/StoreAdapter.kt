@@ -11,11 +11,9 @@ import java.util.Currency
 
 internal class StoreAdapter internal constructor(
     private val activity: StoreActivity,
-    private val priceMultiplier: Float,
     private val checkoutResultContract: ActivityResultLauncher<CheckoutContract.Args>,
     private val itemsChangedCallback: (Boolean) -> Unit = {}
 ) : RecyclerView.Adapter<StoreAdapter.ViewHolder>() {
-
     internal var customer: Customer? = null
     internal var isGooglePayReady: Boolean = false
 
@@ -23,22 +21,28 @@ internal class StoreAdapter internal constructor(
 
     private var totalOrdered: Int = 0
 
-    // Note: our sample backend assumes USD as currency. This code would be
-    // otherwise functional if you switched that assumption on the backend and passed
-    // currency code as a parameter.
-    private val cart: IntArray = IntArray(Product.values().size)
+    private val productQuantities: MutableMap<Product, Int>
 
     init {
         setHasStableIds(true)
+
+        productQuantities = Product.values()
+            .map {
+                it to 0
+            }
+            .toMap()
+            .toMutableMap()
     }
 
     private fun adjustItemQuantity(view: View, index: Int, increase: Boolean) {
+        val product = Product.values()[index]
+        val currentQuantity = getProductQuantity(product)
         if (increase) {
-            cart[index]++
+            productQuantities[product] = currentQuantity + 1
             totalOrdered++
             itemsChangedCallback(totalOrdered > 0)
-        } else if (cart[index] > 0) {
-            cart[index]--
+        } else if (currentQuantity > 0) {
+            productQuantities[product] = currentQuantity - 1
             totalOrdered--
             itemsChangedCallback(totalOrdered > 0)
         }
@@ -46,7 +50,7 @@ internal class StoreAdapter internal constructor(
         view.announceForAccessibility(
             activity.getString(
                 R.string.adjust_cart_product,
-                cart[index],
+                getProductQuantity(product),
                 Product.values()[index]
             )
         )
@@ -55,10 +59,10 @@ internal class StoreAdapter internal constructor(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val product = Product.values()[position]
         holder.bind(
-            productName = Product.values()[position].emoji,
-            price = getPrice(position),
-            quantity = cart[position]
+            product = product,
+            quantity = getProductQuantity(product)
         )
         holder.viewBinding.buttonAdd.setOnClickListener {
             adjustItemQuantity(it, holder.adapterPosition, true)
@@ -88,16 +92,17 @@ internal class StoreAdapter internal constructor(
     }
 
     internal fun launchPurchaseActivityWithCart() {
-        val cart = StoreCart(currency)
-        for (i in this.cart.indices) {
-            if (this.cart[i] > 0) {
-                cart.addStoreLineItem(
-                    Product.values()[i].emoji,
-                    this.cart[i],
-                    getPrice(i).toLong()
-                )
-            }
-        }
+        val cart = StoreCart(
+            currency,
+            productQuantities
+                .filterValues { it > 0 }
+                .map { (product, quantity) ->
+                    StoreLineItem(
+                        product = product,
+                        quantity = quantity
+                    )
+                }
+        )
 
         checkoutResultContract.launch(
             CheckoutContract.Args(
@@ -109,64 +114,42 @@ internal class StoreAdapter internal constructor(
     }
 
     internal fun clearItemSelections() {
-        cart.forEachIndexed { index, _ ->
-            cart[index] = 0
+        productQuantities.forEach {
+            productQuantities[it.key] = 0
         }
         notifyDataSetChanged()
         itemsChangedCallback(false)
     }
 
-    private fun getPrice(position: Int): Int {
-        return (Product.values()[position].price * priceMultiplier).toInt()
-    }
+    private fun getProductQuantity(product: Product): Int = productQuantities[product] ?: 0
 
     internal class ViewHolder(
         internal val viewBinding: StoreItemBinding,
         private val currency: Currency
     ) : RecyclerView.ViewHolder(viewBinding.root) {
         fun bind(
-            productName: String,
-            price: Int,
+            product: Product,
             quantity: Int
         ) {
-            viewBinding.label.text = productName
+            viewBinding.label.text = product.emoji
             val res = itemView.context.resources
-            viewBinding.buttonAdd.contentDescription = res.getString(R.string.add_item, productName)
-            viewBinding.buttonRemove.contentDescription = res.getString(R.string.remove_item, productName)
+            viewBinding.buttonAdd.contentDescription = res.getString(R.string.add_item, product.emoji)
+            viewBinding.buttonRemove.contentDescription = res.getString(R.string.remove_item, product.emoji)
 
-            val displayPrice = StoreUtils.getPriceString(price.toLong(), currency)
+            val displayPrice = StoreUtils.getPriceString(
+                product.price.toLong(),
+                currency
+            )
             viewBinding.price.text = displayPrice
 
             viewBinding.quantity.text = quantity.toString()
 
             viewBinding.itemContainer.contentDescription = res.getString(
                 R.string.product_description,
-                productName,
+                product.emoji,
                 quantity,
                 displayPrice
             )
         }
-    }
-
-    private enum class Product(
-        internal val emoji: String,
-        internal val price: Int
-    ) {
-        Shirt("👕", 2000),
-        Pants("👖", 4000),
-        Dress("👗", 3000),
-        MansShoe("👞", 700),
-        AthleticShoe("👟", 2000),
-        HighHeeledShoe("👠", 1000),
-        WomansSandal("👡", 2000),
-        WomansBoots("👢", 2500),
-        WomansHat("👒", 800),
-        Bikini("👙", 3000),
-        Lipstick("💄", 2000),
-        TopHat("🎩", 5000),
-        Purse("👛", 5500),
-        Handbag("👜", 6000),
-        Sunglasses("🕶", 2000),
-        WomansClothes("👚", 2500)
     }
 }

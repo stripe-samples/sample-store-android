@@ -1,6 +1,5 @@
 package com.stripe.samplestore
 
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
 import androidx.annotation.StringRes
@@ -54,7 +53,7 @@ class StoreActivity : AppCompatActivity() {
     }
 
     private val storeAdapter: StoreAdapter by lazy {
-        StoreAdapter(this, priceMultiplier, checkoutResultLauncher) { hasItems ->
+        StoreAdapter(this, checkoutResultLauncher) { hasItems ->
             if (hasItems) {
                 viewBinding.fab.show()
             } else {
@@ -62,18 +61,6 @@ class StoreActivity : AppCompatActivity() {
             }
         }
     }
-
-    private val priceMultiplier: Float
-        get() {
-            return try {
-                packageManager
-                    .getApplicationInfo(packageName, PackageManager.GET_META_DATA)
-                    .metaData
-                    .getFloat("com.stripe.samplestore.price_multiplier")
-            } catch (e: PackageManager.NameNotFoundException) {
-                1.0f
-            }
-        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
