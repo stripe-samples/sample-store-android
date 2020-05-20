@@ -39,7 +39,7 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
 
     defaultConfig {
-        applicationId "com.stripe.samplestore"
+        applicationId "com.stripe.android.samplestore"
         minSdkVersion 19
         targetSdkVersion rootProject.ext.compileSdkVersion
         multiDexEnabled true
