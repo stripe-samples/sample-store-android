@@ -5,17 +5,18 @@ import androidx.annotation.Size
 import com.stripe.android.EphemeralKeyProvider
 import com.stripe.android.EphemeralKeyUpdateListener
 import com.stripe.samplestore.BackendApiFactory
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.schedulers.Schedulers
-import java.io.IOException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SampleStoreEphemeralKeyProvider @JvmOverloads constructor(
     context: Context,
     private val stripeAccountId: String? = null
 ) : EphemeralKeyProvider {
 
-    private val compositeDisposable: CompositeDisposable = CompositeDisposable()
+    private val workScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val backendApi: BackendApi = BackendApiFactory(context).create()
 
     override fun createEphemeralKey(
@@ -27,21 +28,25 @@ class SampleStoreEphemeralKeyProvider @JvmOverloads constructor(
             params["stripe_account"] = it
         }
 
-        compositeDisposable.add(backendApi.createEphemeralKey(params)
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe { response ->
-                try {
-                    val rawKey = response.string()
-                    keyUpdateListener.onKeyUpdate(rawKey)
-                } catch (e: IOException) {
-                    keyUpdateListener
-                        .onKeyUpdateFailure(0, e.message ?: "")
+        workScope.launch {
+            val response =
+                kotlin.runCatching {
+                    backendApi
+                        .createEphemeralKey(params)
+                        .string()
                 }
-            })
-    }
 
-    fun destroy() {
-        compositeDisposable.dispose()
+            withContext(Dispatchers.Main) {
+                response.fold(
+                    onSuccess = {
+                        keyUpdateListener.onKeyUpdate(it)
+                    },
+                    onFailure = {
+                        keyUpdateListener
+                            .onKeyUpdateFailure(0, it.message.orEmpty())
+                    }
+                )
+            }
+        }
     }
 }
