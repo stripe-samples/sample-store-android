@@ -4,6 +4,8 @@ import android.os.StrictMode
 import androidx.multidex.MultiDexApplication
 
 import com.facebook.stetho.Stetho
+import com.stripe.android.CustomerSession
+import com.stripe.samplestore.service.SampleStoreEphemeralKeyProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,5 +34,13 @@ class SampleStoreApplication : MultiDexApplication() {
         CoroutineScope(Dispatchers.IO).launch {
             Stetho.initializeWithDefaults(this@SampleStoreApplication)
         }
+
+        val stripeAccountId = Settings(this).stripeAccountId
+        CustomerSession.initCustomerSession(
+            this,
+            SampleStoreEphemeralKeyProvider(this, stripeAccountId),
+            stripeAccountId,
+            shouldPrefetchEphemeralKey = false
+        )
     }
 }

@@ -9,75 +9,48 @@ import com.stripe.android.model.PaymentIntent
 import com.stripe.android.model.PaymentMethod
 import com.stripe.android.model.PaymentMethodCreateParams
 import com.stripe.android.model.SetupIntent
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.schedulers.Schedulers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.launch
+import okhttp3.ResponseBody
 import org.json.JSONObject
 
 internal class PaymentViewModel(application: Application) : AndroidViewModel(application) {
     private val context = application.applicationContext
-    private val service = BackendApiFactory(context).create()
+    private val backendApi = BackendApiFactory(context).create()
     private val stripe = StripeFactory(context).create()
-    private val compositeDisposable = CompositeDisposable()
+    private val workScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun createPaymentIntent(params: Map<String, Any>): LiveData<Result<JSONObject>> {
-        val liveData = MutableLiveData<Result<JSONObject>>()
-
-        compositeDisposable.add(
-            service.createPaymentIntent(params.toMutableMap())
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                    {
-                        liveData.value = Result.success(JSONObject(it.string()))
-                    },
-                    {
-                        liveData.value = Result.failure(it)
-                    }
-                )
-        )
-
-        return liveData
+        return executeBackendMethod {
+            backendApi.createPaymentIntent(params.toMutableMap())
+        }
     }
 
     fun createSetupIntent(params: Map<String, Any>): LiveData<Result<JSONObject>> {
-        val liveData = MutableLiveData<Result<JSONObject>>()
-
-        compositeDisposable.add(
-            service
-                .createSetupIntent(params.toMutableMap())
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                    {
-                        liveData.value = Result.success(JSONObject(it.string()))
-                    },
-                    {
-                        liveData.value = Result.failure(it)
-                    }
-                )
-        )
-
-        return liveData
+        return executeBackendMethod {
+            backendApi.createSetupIntent(params.toMutableMap())
+        }
     }
 
     fun confirmStripeIntent(params: Map<String, Any>): LiveData<Result<JSONObject>> {
-        val liveData = MutableLiveData<Result<JSONObject>>()
-        compositeDisposable.add(
-            service.confirmPaymentIntent(params.toMutableMap())
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                    {
-                        liveData.value = Result.success(JSONObject(it.string()))
-                    },
-                    {
-                        liveData.value = Result.failure(it)
-                    }
-                )
-        )
+        return executeBackendMethod {
+            backendApi.confirmPaymentIntent(params.toMutableMap())
+        }
+    }
 
-        return liveData
+    private fun executeBackendMethod(
+        backendMethod: suspend () -> ResponseBody
+    ): LiveData<Result<JSONObject>> {
+        val result = MutableLiveData<Result<JSONObject>>()
+        workScope.launch {
+            result.postValue(runCatching {
+                JSONObject(backendMethod().string())
+            })
+        }
+        return result
     }
 
     fun retrievePaymentIntent(clientSecret: String): LiveData<Result<PaymentIntent>> {
@@ -129,5 +102,10 @@ internal class PaymentViewModel(application: Application) : AndroidViewModel(app
             }
         )
         return liveData
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        workScope.coroutineContext.cancelChildren()
     }
 }
