@@ -18,9 +18,8 @@ import okhttp3.ResponseBody
 import org.json.JSONObject
 
 internal class PaymentViewModel(application: Application) : AndroidViewModel(application) {
-    private val context = application.applicationContext
-    private val backendApi = BackendApiFactory(context).create()
-    private val stripe = StripeFactory(context).create()
+    private val backendApi = BackendApiFactory(application.applicationContext).create()
+    private val stripe = StripeFactory(application.applicationContext).create()
     private val workScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun createPaymentIntent(params: Map<String, Any>): LiveData<Result<JSONObject>> {
