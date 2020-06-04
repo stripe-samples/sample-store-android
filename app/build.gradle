@@ -100,6 +100,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.1.0'
     implementation 'androidx.recyclerview:recyclerview:1.1.0'
     implementation 'androidx.activity:activity-ktx:1.2.0-alpha05'
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.2.0"
     implementation 'com.google.android.material:material:1.1.0'
     implementation 'com.google.android.gms:play-services-wallet:18.0.0'
 
@@ -124,7 +125,7 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutineVersion"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutineVersion"
 
-    ktlint 'com.pinterest:ktlint:0.36.0'
+    ktlint 'com.pinterest:ktlint:0.37.0'
 
     testImplementation 'junit:junit:4.13'
     testImplementation "org.mockito:mockito-core:3.3.3"

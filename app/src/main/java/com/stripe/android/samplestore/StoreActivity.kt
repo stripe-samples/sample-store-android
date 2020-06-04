@@ -28,10 +28,12 @@ class StoreActivity : AppCompatActivity() {
     }
 
     private val paymentsClient: PaymentsClient by lazy {
-        Wallet.getPaymentsClient(this,
+        Wallet.getPaymentsClient(
+            this,
             Wallet.WalletOptions.Builder()
                 .setEnvironment(WalletConstants.ENVIRONMENT_TEST)
-                .build())
+                .build()
+        )
     }
     private val googlePayJsonFactory: GooglePayJsonFactory by lazy {
         GooglePayJsonFactory(this)
@@ -68,14 +70,17 @@ class StoreActivity : AppCompatActivity() {
 
         viewBinding.fab.isEnabled = false
         viewBinding.progressBar.visibility = View.VISIBLE
-        viewModel.retrieveCustomer().observe(this, Observer { result ->
-            viewBinding.progressBar.visibility = View.INVISIBLE
-            viewBinding.fab.isEnabled = result.isSuccess
+        viewModel.retrieveCustomer().observe(
+            this,
+            Observer { result ->
+                viewBinding.progressBar.visibility = View.INVISIBLE
+                viewBinding.fab.isEnabled = result.isSuccess
 
-            result.onSuccess {
-                storeAdapter.customer = it
+                result.onSuccess {
+                    storeAdapter.customer = it
+                }
             }
-        })
+        )
 
         isGooglePayReady()
 
