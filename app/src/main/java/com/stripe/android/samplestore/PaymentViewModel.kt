@@ -4,23 +4,22 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.liveData
 import com.stripe.android.ApiResultCallback
 import com.stripe.android.model.PaymentIntent
 import com.stripe.android.model.PaymentMethod
 import com.stripe.android.model.PaymentMethodCreateParams
 import com.stripe.android.model.SetupIntent
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.launch
 import okhttp3.ResponseBody
 import org.json.JSONObject
 
 internal class PaymentViewModel(application: Application) : AndroidViewModel(application) {
     private val backendApi = BackendApiFactory(application).create()
     private val stripe = StripeFactory(application).create()
-    private val workScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val coroutineContext = Dispatchers.IO + SupervisorJob()
 
     fun createPaymentIntent(params: Map<String, Any>): LiveData<Result<JSONObject>> {
         return executeBackendMethod {
@@ -42,14 +41,12 @@ internal class PaymentViewModel(application: Application) : AndroidViewModel(app
 
     private fun executeBackendMethod(
         backendMethod: suspend () -> ResponseBody
-    ): LiveData<Result<JSONObject>> {
-        val result = MutableLiveData<Result<JSONObject>>()
-        workScope.launch {
-            result.postValue(runCatching {
+    ) = liveData<Result<JSONObject>>(coroutineContext) {
+        emit(
+            runCatching {
                 JSONObject(backendMethod().string())
-            })
-        }
-        return result
+            }
+        )
     }
 
     fun retrievePaymentIntent(clientSecret: String): LiveData<Result<PaymentIntent>> {
@@ -105,6 +102,6 @@ internal class PaymentViewModel(application: Application) : AndroidViewModel(app
 
     override fun onCleared() {
         super.onCleared()
-        workScope.coroutineContext.cancelChildren()
+        coroutineContext.cancelChildren()
     }
 }
