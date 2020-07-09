@@ -1,7 +1,7 @@
 package com.stripe.android.samplestore
 
+import android.app.Application
 import android.os.StrictMode
-import androidx.multidex.MultiDexApplication
 
 import com.facebook.stetho.Stetho
 import com.stripe.android.CustomerSession
@@ -11,7 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class SampleStoreApplication : MultiDexApplication() {
+class SampleStoreApplication : Application() {
 
     override fun onCreate() {
         StrictMode.setThreadPolicy(
