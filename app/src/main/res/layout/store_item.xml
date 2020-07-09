@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/item_container"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -25,7 +26,7 @@
         android:padding="@dimen/button_padding"
         android:layout_gravity="center_vertical"
         android:background="?attr/selectableItemBackground"
-        android:src="@drawable/ic_remove_black_24dp"
+        app:srcCompat="@drawable/ic_remove_black_24dp"
         android:tint="@color/semitransparentGray"
         android:contentDescription="@null" />
 
@@ -49,7 +50,7 @@
         android:layout_marginStart="@dimen/emoji_left_margin"
         android:layout_gravity="center_vertical"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_add_black_24dp"
+        app:srcCompat="@drawable/ic_add_black_24dp"
         android:tint="@color/semitransparentGray"
         android:contentDescription="@null" />
 
