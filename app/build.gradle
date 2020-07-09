@@ -105,7 +105,7 @@ dependencies {
     implementation 'com.google.android.gms:play-services-wallet:18.0.0'
 
     /* Used for server calls */
-    implementation 'com.squareup.okio:okio:2.6.0'
+    implementation 'com.squareup.okio:okio:2.7.0'
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
     implementation 'com.facebook.stetho:stetho:1.5.1'
     implementation 'com.facebook.stetho:stetho-okhttp3:1.5.1'
@@ -123,7 +123,7 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutineVersion"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutineVersion"
 
-    ktlint 'com.pinterest:ktlint:0.37.1'
+    ktlint 'com.pinterest:ktlint:0.37.2'
 
     testImplementation 'junit:junit:4.13'
     testImplementation "org.mockito:mockito-core:3.3.3"
