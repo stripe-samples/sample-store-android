@@ -72,6 +72,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
 
     buildFeatures {
         viewBinding true
@@ -96,7 +99,7 @@ androidExtensions {
 }
 
 dependencies {
-    implementation 'com.stripe:stripe-android:14.5.0'
+    implementation 'com.stripe:stripe-android:15.0.0'
     implementation 'androidx.appcompat:appcompat:1.1.0'
     implementation 'androidx.recyclerview:recyclerview:1.1.0'
     implementation 'androidx.activity:activity-ktx:1.2.0-alpha06'

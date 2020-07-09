@@ -1,6 +1,7 @@
 package com.stripe.android.samplestore
 
 import android.app.Application
+import android.net.TrafficStats
 import android.os.StrictMode
 
 import com.facebook.stetho.Stetho
@@ -14,10 +15,10 @@ import kotlinx.coroutines.launch
 class SampleStoreApplication : Application() {
 
     override fun onCreate() {
+        TrafficStats.setThreadStatsTag(TAG)
+
         StrictMode.setThreadPolicy(
             StrictMode.ThreadPolicy.Builder()
-                .detectDiskReads()
-                .detectDiskWrites()
                 .detectAll()
                 .penaltyLog()
                 .build()
@@ -25,27 +26,33 @@ class SampleStoreApplication : Application() {
 
         StrictMode.setVmPolicy(
             StrictMode.VmPolicy.Builder()
-                .detectLeakedSqlLiteObjects()
-                .detectLeakedClosableObjects()
+                .detectAll()
                 .penaltyLog()
-                .penaltyDeath()
                 .build()
         )
 
         super.onCreate()
 
-        PaymentConfiguration.init(this, Settings(this).publishableKey)
+        val settings = Settings(this)
 
         CoroutineScope(Dispatchers.IO).launch {
+            PaymentConfiguration.init(
+                this@SampleStoreApplication,
+                publishableKey = settings.publishableKey,
+                stripeAccountId = settings.stripeAccountId
+            )
+
             Stetho.initializeWithDefaults(this@SampleStoreApplication)
         }
 
-        val stripeAccountId = Settings(this).stripeAccountId
         CustomerSession.initCustomerSession(
             this,
-            SampleStoreEphemeralKeyProvider(this, stripeAccountId),
-            stripeAccountId,
+            SampleStoreEphemeralKeyProvider(this, settings.stripeAccountId),
             shouldPrefetchEphemeralKey = false
         )
+    }
+
+    private companion object {
+        private const val TAG = 99999
     }
 }

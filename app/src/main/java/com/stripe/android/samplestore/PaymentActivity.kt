@@ -38,6 +38,7 @@ import com.stripe.android.view.BillingAddressFields
 import com.stripe.android.samplestore.databinding.CartItemBinding
 import com.stripe.android.samplestore.databinding.PaymentActivityBinding
 import org.json.JSONObject
+import java.lang.ref.WeakReference
 import java.util.Currency
 import java.util.Locale
 
@@ -640,7 +641,7 @@ class PaymentActivity : AppCompatActivity() {
         return when (paymentMethod.type) {
             PaymentMethod.Type.Card -> {
                 paymentMethod.card?.let {
-                    "${getDisplayName(it.brand)}-${it.last4}"
+                    "${it.brand.displayName}-${it.last4}"
                 }.orEmpty()
             }
             PaymentMethod.Type.Fpx -> {
@@ -729,16 +730,18 @@ class PaymentActivity : AppCompatActivity() {
 
     private class PaymentSessionListenerImpl constructor(
         activity: PaymentActivity
-    ) : PaymentSession.ActivityPaymentSessionListener<PaymentActivity>(activity) {
+    ) : PaymentSession.PaymentSessionListener {
+
+        private val activityRef = WeakReference(activity)
 
         override fun onCommunicatingStateChanged(isCommunicating: Boolean) {}
 
         override fun onError(errorCode: Int, errorMessage: String) {
-            listenerActivity?.displayError(errorMessage)
+            activityRef.get()?.displayError(errorMessage)
         }
 
         override fun onPaymentSessionDataChanged(data: PaymentSessionData) {
-            listenerActivity?.onPaymentSessionDataChanged(data)
+            activityRef.get()?.onPaymentSessionDataChanged(data)
         }
     }
 
