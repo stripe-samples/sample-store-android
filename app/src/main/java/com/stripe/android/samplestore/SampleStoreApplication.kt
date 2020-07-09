@@ -16,8 +16,6 @@ class SampleStoreApplication : Application() {
     override fun onCreate() {
         StrictMode.setThreadPolicy(
             StrictMode.ThreadPolicy.Builder()
-                .detectDiskReads()
-                .detectDiskWrites()
                 .detectAll()
                 .penaltyLog()
                 .build()
@@ -25,8 +23,7 @@ class SampleStoreApplication : Application() {
 
         StrictMode.setVmPolicy(
             StrictMode.VmPolicy.Builder()
-                .detectLeakedSqlLiteObjects()
-                .detectLeakedClosableObjects()
+                .detectAll()
                 .penaltyLog()
                 .penaltyDeath()
                 .build()
@@ -34,17 +31,20 @@ class SampleStoreApplication : Application() {
 
         super.onCreate()
 
-        PaymentConfiguration.init(this, Settings(this).publishableKey)
+        val settings = Settings(this)
+        PaymentConfiguration.init(
+            this,
+            publishableKey = settings.publishableKey,
+            stripeAccountId = settings.stripeAccountId
+        )
 
         CoroutineScope(Dispatchers.IO).launch {
             Stetho.initializeWithDefaults(this@SampleStoreApplication)
         }
 
-        val stripeAccountId = Settings(this).stripeAccountId
         CustomerSession.initCustomerSession(
             this,
-            SampleStoreEphemeralKeyProvider(this, stripeAccountId),
-            stripeAccountId,
+            SampleStoreEphemeralKeyProvider(this, settings.stripeAccountId),
             shouldPrefetchEphemeralKey = false
         )
     }
