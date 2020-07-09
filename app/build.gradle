@@ -40,11 +40,13 @@ android {
 
     defaultConfig {
         applicationId "com.stripe.android.samplestore"
-        minSdkVersion 19
+        minSdkVersion 21
         targetSdkVersion rootProject.ext.compileSdkVersion
         multiDexEnabled true
         versionCode 1
         versionName "1.0"
+
+        vectorDrawables.useSupportLibrary = true
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments clearPackageData: 'true'
@@ -105,7 +107,7 @@ dependencies {
     implementation 'com.google.android.gms:play-services-wallet:18.0.0'
 
     /* Used for server calls */
-    implementation 'com.squareup.okio:okio:2.6.0'
+    implementation 'com.squareup.okio:okio:2.7.0'
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
     implementation 'com.facebook.stetho:stetho:1.5.1'
     implementation 'com.facebook.stetho:stetho-okhttp3:1.5.1'
@@ -119,13 +121,13 @@ dependencies {
     //noinspection GradleDependency
     implementation 'com.squareup.okhttp3:logging-interceptor:4.7.2'
 
-    debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.3'
+    debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.4'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion"
 
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutineVersion"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutineVersion"
 
-    ktlint 'com.pinterest:ktlint:0.37.1'
+    ktlint 'com.pinterest:ktlint:0.37.2'
 
     testImplementation 'junit:junit:4.13'
     testImplementation "org.mockito:mockito-core:3.3.3"
