@@ -152,7 +152,8 @@ class PaymentActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
 
         val isPaymentIntentResult = stripe.onPaymentResult(
-            requestCode, data,
+            requestCode,
+            data,
             object : ApiResultCallback<PaymentIntentResult> {
                 override fun onSuccess(result: PaymentIntentResult) {
                     stopLoading()
@@ -174,7 +175,8 @@ class PaymentActivity : AppCompatActivity() {
             startLoading()
         } else {
             val isSetupIntentResult = stripe.onSetupResult(
-                requestCode, data,
+                requestCode,
+                data,
                 object : ApiResultCallback<SetupIntentResult> {
                     override fun onSuccess(result: SetupIntentResult) {
                         stopLoading()
@@ -265,7 +267,9 @@ class PaymentActivity : AppCompatActivity() {
         )
 
         val totalViewBinding = CartItemBinding.inflate(
-            layoutInflater, viewBinding.cartItems, false
+            layoutInflater,
+            viewBinding.cartItems,
+            false
         ).also {
             it.label.text = getString(R.string.checkout_total_cost_label)
             it.totalPrice.text = getDisplayPrice(currencySymbol, totalPrice)
@@ -276,7 +280,9 @@ class PaymentActivity : AppCompatActivity() {
     private fun addLineItems(currencySymbol: String, items: List<StoreLineItem>) {
         items.forEach { item ->
             val cartItemViewBinding = CartItemBinding.inflate(
-                layoutInflater, viewBinding.cartItems, false
+                layoutInflater,
+                viewBinding.cartItems,
+                false
             )
             val displayPrice = getDisplayPrice(currencySymbol, item.totalPrice.toInt())
             val cartItem = cartItemViewBinding.cartItem
