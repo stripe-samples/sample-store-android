@@ -13,21 +13,23 @@ internal class StoreViewModel(application: Application) : AndroidViewModel(appli
 
     fun retrieveCustomer(): LiveData<Result<Customer>> {
         val liveData = MutableLiveData<Result<Customer>>()
-        customerSession.retrieveCurrentCustomer(object : CustomerSession.CustomerRetrievalListener {
-            override fun onCustomerRetrieved(customer: Customer) {
-                liveData.value = Result.success(customer)
-            }
+        customerSession.retrieveCurrentCustomer(
+            object : CustomerSession.CustomerRetrievalListener {
+                override fun onCustomerRetrieved(customer: Customer) {
+                    liveData.value = Result.success(customer)
+                }
 
-            override fun onError(
-                errorCode: Int,
-                errorMessage: String,
-                stripeError: StripeError?
-            ) {
-                liveData.value = Result.failure(
-                    RuntimeException("Could not retrieve Customer. $errorMessage ($errorCode). $stripeError")
-                )
+                override fun onError(
+                    errorCode: Int,
+                    errorMessage: String,
+                    stripeError: StripeError?
+                ) {
+                    liveData.value = Result.failure(
+                        RuntimeException("Could not retrieve Customer. $errorMessage ($errorCode). $stripeError")
+                    )
+                }
             }
-        })
+        )
         return liveData
     }
 }
