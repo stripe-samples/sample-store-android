@@ -5,7 +5,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.gms.wallet.AutoResolveHelper
 import com.google.android.gms.wallet.PaymentData
@@ -75,7 +74,7 @@ class PaymentActivity : AppCompatActivity() {
         )
     }
     private val args: CheckoutContract.Args by lazy {
-        requireNotNull(intent?.extras?.getParcelable<CheckoutContract.Args>(CheckoutContract.EXTRA_ARGS))
+        requireNotNull(intent?.extras?.getParcelable(CheckoutContract.EXTRA_ARGS))
     }
 
     private val storeCart: StoreCart by lazy { args.cart }
@@ -223,7 +222,7 @@ class PaymentActivity : AppCompatActivity() {
         viewModel.createPaymentMethod(paymentMethodCreateParams)
             .observe(
                 this,
-                Observer { result ->
+                { result ->
                     result.fold(
                         onSuccess = {
                             payWithPaymentMethod(it)
@@ -380,7 +379,7 @@ class PaymentActivity : AppCompatActivity() {
             createSetupIntentParams(settings.stripeAccountId)
         ).observe(
             this,
-            Observer { result ->
+            { result ->
                 stopLoading()
 
                 result.fold(
@@ -405,7 +404,7 @@ class PaymentActivity : AppCompatActivity() {
             )
         ).observe(
             this,
-            Observer { result ->
+            { result ->
                 result.fold(
                     onSuccess = { response ->
                         onStripeIntentClientSecretResponse(response, paymentMethod)
@@ -509,7 +508,7 @@ class PaymentActivity : AppCompatActivity() {
             params
         ).observe(
             this,
-            Observer { result ->
+            { result ->
                 stopLoading()
                 result.fold(
                     onSuccess = {
@@ -555,7 +554,7 @@ class PaymentActivity : AppCompatActivity() {
         viewModel.retrievePaymentIntent(clientSecret)
             .observe(
                 this,
-                Observer { result ->
+                { result ->
                     stopLoading()
                     result.fold(
                         onSuccess = {
@@ -579,7 +578,7 @@ class PaymentActivity : AppCompatActivity() {
         viewModel.retrieveSetupIntent(clientSecret)
             .observe(
                 this,
-                Observer { result ->
+                { result ->
                     stopLoading()
                     result.fold(
                         onSuccess = {
@@ -662,7 +661,7 @@ class PaymentActivity : AppCompatActivity() {
     private fun getDisplayName(name: String?): String {
         return (name.orEmpty())
             .split("_")
-            .joinToString(separator = " ") { it.capitalize() }
+            .joinToString(separator = " ") { it.capitalize(Locale.ROOT) }
     }
 
     private fun onPaymentSessionDataChanged(data: PaymentSessionData) {

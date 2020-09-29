@@ -41,7 +41,7 @@ internal class PaymentViewModel(application: Application) : AndroidViewModel(app
 
     private fun executeBackendMethod(
         backendMethod: suspend () -> ResponseBody
-    ) = liveData<Result<JSONObject>>(coroutineContext) {
+    ) = liveData(coroutineContext) {
         emit(
             runCatching {
                 JSONObject(backendMethod().string())
