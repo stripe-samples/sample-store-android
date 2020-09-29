@@ -9,7 +9,7 @@
 
 ## Overview
 
-This sample app demonstrates integrating with the [Stripe Android SDK](https://github.com/stripe/stripe-android) using its prebuilt UI components and [PaymentSession](https://stripe.dev/stripe-android/com/stripe/android/PaymentSession.html)
+This sample app demonstrates integrating with the [Stripe Android SDK](https://github.com/stripe/stripe-android) using its prebuilt UI components and [PaymentSession](https://stripe.dev/stripe-android/stripe/com.stripe.android/-payment-session/index.html)
 to manage the checkout flow, including selecting a Payment Method and specifying a shipping address and shipping method.  Read the [Basic Integration](https://stripe.com/docs/mobile/android/basic) guide to learn more.
 
 ### APIs
