@@ -7,7 +7,6 @@ import com.stripe.android.EphemeralKeyUpdateListener
 import com.stripe.android.samplestore.BackendApiFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -15,8 +14,7 @@ class SampleStoreEphemeralKeyProvider @JvmOverloads constructor(
     context: Context,
     private val stripeAccountId: String? = null
 ) : EphemeralKeyProvider {
-
-    private val workScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val workContext = Dispatchers.IO
     private val backendApi: BackendApi = BackendApiFactory(context).create()
 
     override fun createEphemeralKey(
@@ -28,7 +26,7 @@ class SampleStoreEphemeralKeyProvider @JvmOverloads constructor(
             params["stripe_account"] = it
         }
 
-        workScope.launch {
+        CoroutineScope(workContext).launch {
             val response =
                 kotlin.runCatching {
                     backendApi

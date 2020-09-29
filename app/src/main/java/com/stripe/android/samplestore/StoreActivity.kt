@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.view.View
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.gms.wallet.IsReadyToPayRequest
@@ -72,7 +71,7 @@ class StoreActivity : AppCompatActivity() {
         viewBinding.progressBar.visibility = View.VISIBLE
         viewModel.retrieveCustomer().observe(
             this,
-            Observer { result ->
+            { result ->
                 viewBinding.progressBar.visibility = View.INVISIBLE
                 viewBinding.fab.isEnabled = result.isSuccess
 
