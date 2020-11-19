@@ -1,7 +1,7 @@
 package com.stripe.android.samplestore
 
 import android.os.Parcelable
-import kotlinx.android.parcel.Parcelize
+import kotlinx.parcelize.Parcelize
 import java.util.Currency
 
 @Parcelize

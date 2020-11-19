@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Parcelable
 import androidx.activity.result.contract.ActivityResultContract
-import kotlinx.android.parcel.Parcelize
+import kotlinx.parcelize.Parcelize
 
 internal class CheckoutContract : ActivityResultContract<CheckoutContract.Args, CheckoutContract.Result>() {
     override fun createIntent(context: Context, args: Args?): Intent {
