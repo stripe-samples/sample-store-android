@@ -4,8 +4,8 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.ViewModelProvider
 import com.google.android.gms.wallet.AutoResolveHelper
 import com.google.android.gms.wallet.PaymentData
 import com.google.android.gms.wallet.PaymentDataRequest
@@ -33,21 +33,16 @@ import com.stripe.android.model.SetupIntent
 import com.stripe.android.model.ShippingInformation
 import com.stripe.android.model.ShippingMethod
 import com.stripe.android.model.StripeIntent
-import com.stripe.android.view.BillingAddressFields
 import com.stripe.android.samplestore.databinding.CartItemBinding
 import com.stripe.android.samplestore.databinding.PaymentActivityBinding
+import com.stripe.android.view.BillingAddressFields
 import org.json.JSONObject
 import java.lang.ref.WeakReference
 import java.util.Currency
 import java.util.Locale
 
 class PaymentActivity : AppCompatActivity() {
-    private val viewModel: PaymentViewModel by lazy {
-        ViewModelProvider(
-            this,
-            ViewModelProvider.AndroidViewModelFactory(application)
-        )[PaymentViewModel::class.java]
-    }
+    private val viewModel: PaymentViewModel by viewModels()
 
     private val viewBinding: PaymentActivityBinding by lazy {
         PaymentActivityBinding.inflate(layoutInflater)
