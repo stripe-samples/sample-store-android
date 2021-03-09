@@ -3,8 +3,6 @@ package com.stripe.android.samplestore
 import android.app.Application
 import android.net.TrafficStats
 import android.os.StrictMode
-
-import com.facebook.stetho.Stetho
 import com.stripe.android.CustomerSession
 import com.stripe.android.PaymentConfiguration
 import com.stripe.android.samplestore.service.SampleStoreEphemeralKeyProvider
@@ -41,8 +39,6 @@ class SampleStoreApplication : Application() {
                 publishableKey = settings.publishableKey,
                 stripeAccountId = settings.stripeAccountId
             )
-
-            Stetho.initializeWithDefaults(this@SampleStoreApplication)
         }
 
         CustomerSession.initCustomerSession(
