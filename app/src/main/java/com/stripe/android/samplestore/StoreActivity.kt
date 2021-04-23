@@ -2,38 +2,27 @@ package com.stripe.android.samplestore
 
 import android.os.Bundle
 import android.view.View
+import androidx.activity.viewModels
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.gms.wallet.IsReadyToPayRequest
 import com.google.android.gms.wallet.PaymentsClient
-import com.google.android.gms.wallet.Wallet
-import com.google.android.gms.wallet.WalletConstants
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.stripe.android.GooglePayJsonFactory
 import com.stripe.android.samplestore.databinding.StoreActivityBinding
 
 class StoreActivity : AppCompatActivity() {
-    private val viewModel: StoreViewModel by lazy {
-        ViewModelProvider(
-            this,
-            ViewModelProvider.AndroidViewModelFactory(application)
-        )[StoreViewModel::class.java]
-    }
+    private val viewModel: StoreViewModel by viewModels()
 
     private val viewBinding: StoreActivityBinding by lazy {
         StoreActivityBinding.inflate(layoutInflater)
     }
 
     private val paymentsClient: PaymentsClient by lazy {
-        Wallet.getPaymentsClient(
-            this,
-            Wallet.WalletOptions.Builder()
-                .setEnvironment(WalletConstants.ENVIRONMENT_TEST)
-                .build()
-        )
+        PaymentsClientFactory(this).create()
     }
+
     private val googlePayJsonFactory: GooglePayJsonFactory by lazy {
         GooglePayJsonFactory(this)
     }
