@@ -10,8 +10,6 @@ import com.google.android.gms.wallet.AutoResolveHelper
 import com.google.android.gms.wallet.PaymentData
 import com.google.android.gms.wallet.PaymentDataRequest
 import com.google.android.gms.wallet.PaymentsClient
-import com.google.android.gms.wallet.Wallet
-import com.google.android.gms.wallet.WalletConstants
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.stripe.android.ApiResultCallback
 import com.stripe.android.GooglePayJsonFactory
@@ -75,13 +73,9 @@ class PaymentActivity : AppCompatActivity() {
     private val storeCart: StoreCart by lazy { args.cart }
 
     private val paymentsClient: PaymentsClient by lazy {
-        Wallet.getPaymentsClient(
-            this,
-            Wallet.WalletOptions.Builder()
-                .setEnvironment(WalletConstants.ENVIRONMENT_TEST)
-                .build()
-        )
+        PaymentsClientFactory(this).create()
     }
+
     private val googlePayJsonFactory: GooglePayJsonFactory by lazy {
         GooglePayJsonFactory(this)
     }
