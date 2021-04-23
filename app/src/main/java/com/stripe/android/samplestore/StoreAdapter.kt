@@ -65,10 +65,10 @@ internal class StoreAdapter internal constructor(
             quantity = getProductQuantity(product)
         )
         holder.viewBinding.buttonAdd.setOnClickListener {
-            adjustItemQuantity(it, holder.adapterPosition, true)
+            adjustItemQuantity(it, holder.bindingAdapterPosition, true)
         }
         holder.viewBinding.buttonRemove.setOnClickListener {
-            adjustItemQuantity(it, holder.adapterPosition, false)
+            adjustItemQuantity(it, holder.bindingAdapterPosition, false)
         }
     }
 
