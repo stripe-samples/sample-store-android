@@ -1,14 +1,13 @@
 package com.stripe.android.samplestore
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
 import com.stripe.android.CustomerSession
 import com.stripe.android.StripeError
 import com.stripe.android.model.Customer
 
-internal class StoreViewModel(application: Application) : AndroidViewModel(application) {
+internal class StoreViewModel : ViewModel() {
     private val customerSession: CustomerSession by lazy { CustomerSession.getInstance() }
 
     fun retrieveCustomer(): LiveData<Result<Customer>> {

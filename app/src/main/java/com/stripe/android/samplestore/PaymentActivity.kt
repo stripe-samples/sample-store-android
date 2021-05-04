@@ -3,9 +3,10 @@ package com.stripe.android.samplestore
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isInvisible
+import androidx.core.view.isVisible
 import com.google.android.gms.wallet.AutoResolveHelper
 import com.google.android.gms.wallet.PaymentData
 import com.google.android.gms.wallet.PaymentDataRequest
@@ -40,7 +41,9 @@ import java.util.Currency
 import java.util.Locale
 
 class PaymentActivity : AppCompatActivity() {
-    private val viewModel: PaymentViewModel by viewModels()
+    private val viewModel: PaymentViewModel by viewModels {
+        PaymentViewModel.Factory(application)
+    }
 
     private val viewBinding: PaymentActivityBinding by lazy {
         PaymentActivityBinding.inflate(layoutInflater)
@@ -208,21 +211,19 @@ class PaymentActivity : AppCompatActivity() {
             PaymentMethodCreateParams.createFromGooglePay(paymentDataJson)
 
         startLoading()
-        viewModel.createPaymentMethod(paymentMethodCreateParams)
-            .observe(
-                this,
-                { result ->
-                    result.fold(
-                        onSuccess = {
-                            payWithPaymentMethod(it)
-                        },
-                        onFailure = {
-                            displayError(it)
-                            resetCheckout()
-                        }
-                    )
+        viewModel.createPaymentMethod(
+            paymentMethodCreateParams
+        ).observe(this) { result ->
+            result.fold(
+                onSuccess = {
+                    payWithPaymentMethod(it)
+                },
+                onFailure = {
+                    displayError(it)
+                    resetCheckout()
                 }
             )
+        }
     }
 
     private fun updateConfirmPaymentButton(cartTotal: Long) {
@@ -366,22 +367,19 @@ class PaymentActivity : AppCompatActivity() {
         startLoading()
         viewModel.createSetupIntent(
             createSetupIntentParams(settings.stripeAccountId)
-        ).observe(
-            this,
-            { result ->
-                stopLoading()
+        ).observe(this) { result ->
+            stopLoading()
 
-                result.fold(
-                    onSuccess = { response ->
-                        onStripeIntentClientSecretResponse(
-                            response,
-                            paymentMethod
-                        )
-                    },
-                    onFailure = ::displayError
-                )
-            }
-        )
+            result.fold(
+                onSuccess = { response ->
+                    onStripeIntentClientSecretResponse(
+                        response,
+                        paymentMethod
+                    )
+                },
+                onFailure = ::displayError
+            )
+        }
     }
 
     private fun payWithPaymentMethod(paymentMethod: PaymentMethod) {
@@ -391,17 +389,14 @@ class PaymentActivity : AppCompatActivity() {
                 paymentSessionData?.shippingInformation,
                 settings.stripeAccountId
             )
-        ).observe(
-            this,
-            { result ->
-                result.fold(
-                    onSuccess = { response ->
-                        onStripeIntentClientSecretResponse(response, paymentMethod)
-                    },
-                    onFailure = ::displayError
-                )
-            }
-        )
+        ).observe(this) { result ->
+            result.fold(
+                onSuccess = { response ->
+                    onStripeIntentClientSecretResponse(response, paymentMethod)
+                },
+                onFailure = ::displayError
+            )
+        }
     }
 
     private fun displayError(throwable: Throwable) = displayError(throwable.message)
@@ -420,7 +415,7 @@ class PaymentActivity : AppCompatActivity() {
     private fun resetCheckout() {
         paymentSessionData = null
 
-        viewBinding.progressBar.visibility = View.INVISIBLE
+        viewBinding.progressBar.isInvisible = true
 
         viewBinding.buttonConfirmPayment.tag = false
         viewBinding.buttonConfirmPayment.isEnabled = false
@@ -495,21 +490,18 @@ class PaymentActivity : AppCompatActivity() {
         startLoading()
         viewModel.confirmStripeIntent(
             params
-        ).observe(
-            this,
-            { result ->
-                stopLoading()
-                result.fold(
-                    onSuccess = {
-                        onStripeIntentClientSecretResponse(
-                            it,
-                            paymentMethod
-                        )
-                    },
-                    onFailure = ::displayError
-                )
-            }
-        )
+        ).observe(this) { result ->
+            stopLoading()
+            result.fold(
+                onSuccess = {
+                    onStripeIntentClientSecretResponse(
+                        it,
+                        paymentMethod
+                    )
+                },
+                onFailure = ::displayError
+            )
+        }
     }
 
     private fun onStripeIntentClientSecretResponse(
@@ -540,23 +532,21 @@ class PaymentActivity : AppCompatActivity() {
         paymentMethod: PaymentMethod?
     ) {
         startLoading()
-        viewModel.retrievePaymentIntent(clientSecret)
-            .observe(
-                this,
-                { result ->
-                    stopLoading()
-                    result.fold(
-                        onSuccess = {
-                            processStripeIntent(
-                                it,
-                                isAfterConfirmation = false,
-                                paymentMethod = paymentMethod
-                            )
-                        },
-                        onFailure = ::displayError
+        viewModel.retrievePaymentIntent(
+            clientSecret
+        ).observe(this) { result ->
+            stopLoading()
+            result.fold(
+                onSuccess = {
+                    processStripeIntent(
+                        it,
+                        isAfterConfirmation = false,
+                        paymentMethod = paymentMethod
                     )
-                }
+                },
+                onFailure = ::displayError
             )
+        }
     }
 
     private fun retrieveSetupIntent(
@@ -564,23 +554,21 @@ class PaymentActivity : AppCompatActivity() {
         paymentMethod: PaymentMethod?
     ) {
         startLoading()
-        viewModel.retrieveSetupIntent(clientSecret)
-            .observe(
-                this,
-                { result ->
-                    stopLoading()
-                    result.fold(
-                        onSuccess = {
-                            processStripeIntent(
-                                it,
-                                isAfterConfirmation = false,
-                                paymentMethod = paymentMethod
-                            )
-                        },
-                        onFailure = ::displayError
+        viewModel.retrieveSetupIntent(
+            clientSecret
+        ).observe(this) { result ->
+            stopLoading()
+            result.fold(
+                onSuccess = {
+                    processStripeIntent(
+                        it,
+                        isAfterConfirmation = false,
+                        paymentMethod = paymentMethod
                     )
-                }
+                },
+                onFailure = ::displayError
             )
+        }
     }
 
     private fun finishPayment() {
@@ -611,7 +599,7 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun startLoading() {
-        viewBinding.progressBar.visibility = View.VISIBLE
+        viewBinding.progressBar.isVisible = true
         viewBinding.buttonAddPaymentMethod.isEnabled = false
         viewBinding.buttonAddShippingInfo.isEnabled = false
 
@@ -623,12 +611,14 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun stopLoading() {
-        viewBinding.progressBar.visibility = View.INVISIBLE
+        viewBinding.progressBar.isInvisible = true
         viewBinding.buttonAddPaymentMethod.isEnabled = true
         viewBinding.buttonAddShippingInfo.isEnabled = true
 
-        viewBinding.buttonConfirmPayment.isEnabled = java.lang.Boolean.TRUE == viewBinding.buttonConfirmPayment.tag
-        viewBinding.buttonConfirmSetup.isEnabled = java.lang.Boolean.TRUE == viewBinding.buttonConfirmSetup.tag
+        viewBinding.buttonConfirmPayment.isEnabled =
+            java.lang.Boolean.TRUE == viewBinding.buttonConfirmPayment.tag
+        viewBinding.buttonConfirmSetup.isEnabled =
+            java.lang.Boolean.TRUE == viewBinding.buttonConfirmSetup.tag
     }
 
     private fun getPaymentMethodDescription(paymentMethod: PaymentMethod): String {
