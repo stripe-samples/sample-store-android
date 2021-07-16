@@ -1,26 +1,24 @@
 package com.stripe.android.samplestore
 
 import android.app.Application
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.liveData
-import com.stripe.android.ApiResultCallback
-import com.stripe.android.model.PaymentIntent
+import com.stripe.android.Stripe
+import com.stripe.android.createPaymentMethod
 import com.stripe.android.model.PaymentMethod
 import com.stripe.android.model.PaymentMethodCreateParams
-import com.stripe.android.model.SetupIntent
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelChildren
+import com.stripe.android.retrievePaymentIntent
+import com.stripe.android.retrieveSetupIntent
+import com.stripe.android.samplestore.service.BackendApi
 import okhttp3.ResponseBody
 import org.json.JSONObject
 
-internal class PaymentViewModel(application: Application) : AndroidViewModel(application) {
-    private val backendApi = BackendApiFactory(application).create()
-    private val stripe = StripeFactory(application).create()
-    private val coroutineContext = Dispatchers.IO + SupervisorJob()
-
+internal class PaymentViewModel(
+    private val backendApi: BackendApi,
+    private val stripe: Stripe
+) : ViewModel() {
     fun createPaymentIntent(params: Map<String, Any>): LiveData<Result<JSONObject>> {
         return executeBackendMethod {
             backendApi.createPaymentIntent(params.toMutableMap())
@@ -41,7 +39,7 @@ internal class PaymentViewModel(application: Application) : AndroidViewModel(app
 
     private fun executeBackendMethod(
         backendMethod: suspend () -> ResponseBody
-    ) = liveData(coroutineContext) {
+    ) = liveData {
         emit(
             runCatching {
                 JSONObject(backendMethod().string())
@@ -49,59 +47,38 @@ internal class PaymentViewModel(application: Application) : AndroidViewModel(app
         )
     }
 
-    fun retrievePaymentIntent(clientSecret: String): LiveData<Result<PaymentIntent>> {
-        val liveData = MutableLiveData<Result<PaymentIntent>>()
-        stripe.retrievePaymentIntent(
-            clientSecret,
-            callback = object : ApiResultCallback<PaymentIntent> {
-                override fun onError(e: Exception) {
-                    liveData.value = Result.failure(e)
-                }
-
-                override fun onSuccess(result: PaymentIntent) {
-                    liveData.value = Result.success(result)
-                }
+    fun retrievePaymentIntent(clientSecret: String) = liveData {
+        emit(
+            runCatching {
+                stripe.retrievePaymentIntent(clientSecret)
             }
         )
-        return liveData
     }
 
-    fun retrieveSetupIntent(clientSecret: String): LiveData<Result<SetupIntent>> {
-        val liveData = MutableLiveData<Result<SetupIntent>>()
-        stripe.retrieveSetupIntent(
-            clientSecret,
-            callback = object : ApiResultCallback<SetupIntent> {
-                override fun onError(e: Exception) {
-                    liveData.value = Result.failure(e)
-                }
-
-                override fun onSuccess(result: SetupIntent) {
-                    liveData.value = Result.success(result)
-                }
+    fun retrieveSetupIntent(clientSecret: String) = liveData {
+        emit(
+            runCatching {
+                stripe.retrieveSetupIntent(clientSecret)
             }
         )
-        return liveData
     }
 
-    fun createPaymentMethod(params: PaymentMethodCreateParams): LiveData<Result<PaymentMethod>> {
-        val liveData = MutableLiveData<Result<PaymentMethod>>()
-        stripe.createPaymentMethod(
-            params,
-            callback = object : ApiResultCallback<PaymentMethod> {
-                override fun onSuccess(result: PaymentMethod) {
-                    liveData.value = Result.success(result)
-                }
-
-                override fun onError(e: Exception) {
-                    liveData.value = Result.failure(e)
-                }
-            }
-        )
-        return liveData
+    fun createPaymentMethod(
+        params: PaymentMethodCreateParams
+    ) = liveData<Result<PaymentMethod>> {
+        runCatching {
+            stripe.createPaymentMethod(params)
+        }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        coroutineContext.cancelChildren()
+    class Factory(
+        private val application: Application
+    ) : ViewModelProvider.Factory {
+        override fun <T : ViewModel?> create(modelClass: Class<T>): T {
+            return PaymentViewModel(
+                BackendApiFactory(application).create(),
+                StripeFactory(application).create()
+            ) as T
+        }
     }
 }

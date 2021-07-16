@@ -1,10 +1,11 @@
 package com.stripe.android.samplestore
 
 import android.os.Bundle
-import android.view.View
 import androidx.activity.viewModels
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isInvisible
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.gms.wallet.IsReadyToPayRequest
 import com.google.android.gms.wallet.PaymentsClient
@@ -57,18 +58,15 @@ class StoreActivity : AppCompatActivity() {
         setContentView(viewBinding.root)
 
         viewBinding.fab.isEnabled = false
-        viewBinding.progressBar.visibility = View.VISIBLE
-        viewModel.retrieveCustomer().observe(
-            this,
-            { result ->
-                viewBinding.progressBar.visibility = View.INVISIBLE
-                viewBinding.fab.isEnabled = result.isSuccess
+        viewBinding.progressBar.isVisible = true
+        viewModel.retrieveCustomer().observe(this) { result ->
+            viewBinding.progressBar.isInvisible = true
+            viewBinding.fab.isEnabled = result.isSuccess
 
-                result.onSuccess {
-                    storeAdapter.customer = it
-                }
+            result.onSuccess {
+                storeAdapter.customer = it
             }
-        )
+        }
 
         isGooglePayReady()
 
