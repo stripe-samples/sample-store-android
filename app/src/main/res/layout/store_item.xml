@@ -27,7 +27,7 @@
         android:layout_gravity="center_vertical"
         android:background="?attr/selectableItemBackground"
         app:srcCompat="@drawable/ic_remove_black_24dp"
-        android:tint="@color/semitransparentGray"
+        app:tint="@color/semitransparentGray"
         android:contentDescription="@null" />
 
     <TextView
@@ -51,7 +51,7 @@
         android:layout_gravity="center_vertical"
         android:background="?attr/selectableItemBackgroundBorderless"
         app:srcCompat="@drawable/ic_add_black_24dp"
-        android:tint="@color/semitransparentGray"
+        app:tint="@color/semitransparentGray"
         android:contentDescription="@null" />
 
     <TextView
