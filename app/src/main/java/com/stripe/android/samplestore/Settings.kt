@@ -41,9 +41,9 @@ class Settings(context: Context) {
          * Three-letter ISO [currency code](https://stripe.com/docs/api/payment_intents/object#payment_intent_object-currency),
          * in lowercase. Must be a [supported currency](https://stripe.com/docs/currencies).
          */
-        const val CURRENCY = "USD"
+        const val CURRENCY = "SGC"
 
-        const val COUNTRY = "us"
+        const val COUNTRY = "sg"
 
         /**
          * Set to the base URL of your test backend. If you are using

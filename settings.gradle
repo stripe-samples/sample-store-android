@@ -1,2 +1,26 @@
+enableFeaturePreview("VERSION_CATALOGS")
+
 include ':app'
-rootProject.name='Emoji Apparel Store'
+rootProject.name = 'Emoji Apparel Store'
+
+include ':payments'
+project(':payments').projectDir = new File(rootProject.projectDir, '../stripe-android/payments')
+include ':payments-core'
+project(':payments-core').projectDir = new File(rootProject.projectDir, '../stripe-android/payments-core')
+include ':paymentsheet'
+project(':paymentsheet').projectDir = new File(rootProject.projectDir, '../stripe-android/paymentsheet')
+include ':paymentsheet-example'
+project(':paymentsheet-example').projectDir = new File(rootProject.projectDir, '../stripe-android/paymentsheet-example')
+
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        create("libraries") {
+            from(files(
+                    "../stripe-android/gradle/androidx.versions.toml"
+            ))
+        }
+    }
+}
+
+
