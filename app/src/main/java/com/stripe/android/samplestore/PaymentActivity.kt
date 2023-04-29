@@ -70,7 +70,8 @@ class PaymentActivity : AppCompatActivity() {
         )
     }
     private val args: CheckoutContract.Args by lazy {
-        requireNotNull(intent?.extras?.getParcelable(CheckoutContract.EXTRA_ARGS))
+        val bundle: Bundle? = intent?.extras?.getBundle(CheckoutContract.EXTRA_ARGS)
+        requireNotNull(bundle?.getParcelable("data"))
     }
 
     private val storeCart: StoreCart by lazy { args.cart }
@@ -640,7 +641,12 @@ class PaymentActivity : AppCompatActivity() {
     private fun getDisplayName(name: String?): String {
         return (name.orEmpty())
             .split("_")
-            .joinToString(separator = " ") { it.capitalize(Locale.ROOT) }
+            .joinToString(separator = " ") {
+                it.replaceFirstChar {
+                    if (it.isLowerCase()) it.titlecase(Locale.ROOT)
+                    else it.toString()
+                }
+            }
     }
 
     private fun onPaymentSessionDataChanged(data: PaymentSessionData) {
@@ -742,7 +748,7 @@ class PaymentActivity : AppCompatActivity() {
     private class ShippingMethodsFactory : PaymentSessionConfig.ShippingMethodsFactory {
         override fun create(shippingInformation: ShippingInformation): List<ShippingMethod> {
             val isCourierSupported = "94110" == shippingInformation.address?.postalCode
-            val currency = Currency.getInstance(Settings.CURRENCY.toUpperCase(Locale.ROOT))
+            val currency = Currency.getInstance(Settings.CURRENCY.uppercase(Locale.ROOT))
             val courierMethod = if (isCourierSupported) {
                 ShippingMethod(
                     label = "1 Hour Courier",
