@@ -4,7 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.stripe.android.CustomerSession
-import com.stripe.android.StripeError
+import com.stripe.android.core.StripeError
 import com.stripe.android.model.Customer
 
 internal class StoreViewModel : ViewModel() {

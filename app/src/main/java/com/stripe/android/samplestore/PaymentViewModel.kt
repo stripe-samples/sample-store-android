@@ -74,7 +74,8 @@ internal class PaymentViewModel(
     class Factory(
         private val application: Application
     ) : ViewModelProvider.Factory {
-        override fun <T : ViewModel?> create(modelClass: Class<T>): T {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            @Suppress("UNCHECKED_CAST")
             return PaymentViewModel(
                 BackendApiFactory(application).create(),
                 StripeFactory(application).create()

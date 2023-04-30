@@ -29,8 +29,11 @@
             android:name="com.stripe.example.metadata.stripe_account_id"
             android:value="${STRIPE_ACCOUNT_ID}" />
 
-        <activity android:name=".StoreActivity"
-                  android:theme="@style/AppTheme.NoActionBar">
+        <activity
+            android:name=".StoreActivity"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:exported="true"
+            tools:node="merge">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -38,7 +41,9 @@
         </activity>
 
         <activity
-            android:name=".PaymentActivity">
+            android:name=".PaymentActivity"
+            android:exported="true"
+            tools:node="merge">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
             </intent-filter>
