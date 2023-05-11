@@ -672,7 +672,7 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun updateForGooglePay() {
-        viewBinding.buttonAddPaymentMethod.text = getString(R.string.google_pay)
+        viewBinding.buttonAddPaymentMethod.text = getString(R.string.stripe_google_pay)
     }
 
     private fun getDisplayPrice(currencySymbol: String, price: Int): String {
@@ -742,7 +742,7 @@ class PaymentActivity : AppCompatActivity() {
     private class ShippingMethodsFactory : PaymentSessionConfig.ShippingMethodsFactory {
         override fun create(shippingInformation: ShippingInformation): List<ShippingMethod> {
             val isCourierSupported = "94110" == shippingInformation.address?.postalCode
-            val currency = Currency.getInstance(Settings.CURRENCY.toUpperCase(Locale.ROOT))
+            val currency = Currency.getInstance(Settings.CURRENCY.uppercase())
             val courierMethod = if (isCourierSupported) {
                 ShippingMethod(
                     label = "1 Hour Courier",
