@@ -7,13 +7,14 @@ import androidx.activity.result.contract.ActivityResultContract
 import kotlinx.parcelize.Parcelize
 
 internal class CheckoutContract : ActivityResultContract<CheckoutContract.Args, CheckoutContract.Result>() {
-    override fun createIntent(context: Context, args: Args?): Intent {
+
+    override fun createIntent(context: Context, input: Args): Intent {
         return Intent(context, PaymentActivity::class.java)
-            .putExtra(EXTRA_ARGS, args)
+            .putExtra(EXTRA_ARGS, input)
     }
 
-    override fun parseResult(resultCode: Int, intent: Intent?): Result? {
-        return intent?.getParcelableExtra(EXTRA_RESULT)
+    override fun parseResult(resultCode: Int, intent: Intent?): Result {
+        return requireNotNull(intent?.getParcelableExtra(EXTRA_RESULT))
     }
 
     @Parcelize

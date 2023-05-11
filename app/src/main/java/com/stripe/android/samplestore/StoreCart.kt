@@ -11,5 +11,5 @@ internal data class StoreCart(
 ) : Parcelable {
 
     internal val totalPrice: Long
-        get() = lineItems.sumBy { it.totalPrice.toInt() }.toLong()
+        get() = lineItems.sumOf { it.totalPrice.toInt() }.toLong()
 }
